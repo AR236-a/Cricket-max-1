@@ -19,6 +19,12 @@ import {
   startNextInnings,
   startTestNewDay,
 } from './game/cricketEngine';
+import {
+  clearSavedMatchSession,
+  loadSavedMatchSession,
+  SavedMatchSession,
+  saveMatchSession,
+} from './game/matchStorage';
 import { soundFx } from './game/soundFx';
 import { getBattingHand, getBowlingStyle, getTeamById } from './game/teams';
 import {
@@ -95,15 +101,40 @@ export default function App() {
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('autostart') === '1';
 
-  const [screen, setScreen] = useState<ScreenId>(autostart ? 'playing' : 'menu');
-  const [mode, setMode] = useState<GameMode>('ai');
-  const [format, setFormat] = useState<MatchFormat>('limited');
-  const [pitchCondition, setPitchCondition] = useState<PitchCondition>('hard');
-  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
-  const [homeTeamId, setHomeTeamId] = useState<string | null>(autostart ? 'ind' : null);
-  const [awayTeamId, setAwayTeamId] = useState<string | null>(autostart ? 'aus' : null);
-  const [totalOvers, setTotalOvers] = useState<number>(5);
-  const [oversPerDay, setOversPerDay] = useState<30 | 60 | 90>(90);
+  const initialSavedSession = useMemo(
+    () => (autostart ? null : loadSavedMatchSession()),
+    [autostart]
+  );
+  const shouldAutoResume = Boolean(initialSavedSession?.autoResumeOnLoad);
+
+  const [savedSession, setSavedSession] = useState<SavedMatchSession | null>(initialSavedSession);
+  const [screen, setScreen] = useState<ScreenId>(() =>
+    autostart ? 'playing' : shouldAutoResume && initialSavedSession ? initialSavedSession.screen : 'menu'
+  );
+  const [mode, setMode] = useState<GameMode>(() =>
+    shouldAutoResume && initialSavedSession ? initialSavedSession.match.mode : 'ai'
+  );
+  const [format, setFormat] = useState<MatchFormat>(() =>
+    shouldAutoResume && initialSavedSession ? initialSavedSession.match.format : 'limited'
+  );
+  const [pitchCondition, setPitchCondition] = useState<PitchCondition>(() =>
+    shouldAutoResume && initialSavedSession ? initialSavedSession.match.pitchCondition : 'hard'
+  );
+  const [difficulty, setDifficulty] = useState<Difficulty>(() =>
+    shouldAutoResume && initialSavedSession ? initialSavedSession.match.difficulty : 'medium'
+  );
+  const [homeTeamId, setHomeTeamId] = useState<string | null>(() =>
+    autostart ? 'ind' : shouldAutoResume && initialSavedSession ? initialSavedSession.match.homeTeamId : null
+  );
+  const [awayTeamId, setAwayTeamId] = useState<string | null>(() =>
+    autostart ? 'aus' : shouldAutoResume && initialSavedSession ? initialSavedSession.match.awayTeamId : null
+  );
+  const [totalOvers, setTotalOvers] = useState<number>(() =>
+    shouldAutoResume && initialSavedSession ? initialSavedSession.match.totalOvers : 5
+  );
+  const [oversPerDay, setOversPerDay] = useState<30 | 60 | 90>(() =>
+    shouldAutoResume && initialSavedSession ? initialSavedSession.match.oversPerDay : 90
+  );
 
   // Tournament & Series state (hydrated from localStorage)
   const [tournament, setTournament] = useState<TournamentState | null>(() =>
@@ -112,7 +143,11 @@ export default function App() {
   const [statsArchive, setStatsArchive] = useState<
     Record<string, Record<string, TournamentPlayerStat>>
   >(() => safeLoadStatsArchive());
-  const [activeFixtureId, setActiveFixtureId] = useState<string | null>(null);
+  const [activeFixtureId, setActiveFixtureId] = useState<string | null>(() =>
+    shouldAutoResume && initialSavedSession
+      ? initialSavedSession.match.activeTournamentMatchId ?? null
+      : null
+  );
 
   const careerPlayerStats = useMemo(
     () => combinePlayerStatRecords(Object.values(statsArchive)),
@@ -137,10 +172,22 @@ export default function App() {
           totalOvers: 5,
           homeBatsFirst: true,
         })
+      : shouldAutoResume && initialSavedSession
+      ? initialSavedSession.match
       : null
   );
-  const [selectedDeliveryType, setSelectedDeliveryType] = useState<DeliveryType>('fast');
-  const [selectedDeliveryLength, setSelectedDeliveryLength] = useState<DeliveryLength>('good');
+  const [selectedDeliveryType, setSelectedDeliveryType] = useState<DeliveryType>(() => {
+    if (shouldAutoResume && initialSavedSession) {
+      const style = getBowlingStyle(getActiveInnings(initialSavedSession.match).bowlerName);
+      const savedType = initialSavedSession.selectedDeliveryType;
+      if (style === 'spin') return isSpinDelivery(savedType) ? savedType : 'off_spin';
+      return isSpinDelivery(savedType) ? 'fast' : savedType;
+    }
+    return 'fast';
+  });
+  const [selectedDeliveryLength, setSelectedDeliveryLength] = useState<DeliveryLength>(() =>
+    shouldAutoResume && initialSavedSession ? initialSavedSession.selectedDeliveryLength : 'good'
+  );
   const [isAnimatingBall, setIsAnimatingBall] = useState(false);
   const [aiThinking, setAiThinking] = useState(false);
   const [animTrigger, setAnimTrigger] = useState<BallAnimTrigger | null>(null);
@@ -201,6 +248,30 @@ export default function App() {
       // Ignore storage quota / private mode failures
     }
   }, [tournament]);
+
+  // Auto-save active match state across reloads & browser restarts
+  useEffect(() => {
+    if (autostart) return;
+    if ((screen === 'playing' || screen === 'inningsBreak') && match && !match.matchComplete) {
+      const nextSession: SavedMatchSession = {
+        version: 1,
+        screen,
+        autoResumeOnLoad: true,
+        savedAt: Date.now(),
+        selectedDeliveryType,
+        selectedDeliveryLength,
+        match: {
+          ...match,
+          isPaused: false,
+        },
+      };
+      saveMatchSession(nextSession);
+      setSavedSession(nextSession);
+    } else if (match?.matchComplete || screen === 'result') {
+      clearSavedMatchSession();
+      setSavedSession(null);
+    }
+  }, [autostart, screen, match, selectedDeliveryType, selectedDeliveryLength]);
 
   const handleNavigate = useCallback((next: ScreenId) => {
     soundFx.playClick();
@@ -619,10 +690,23 @@ export default function App() {
     setIsAnimatingBall(false);
     setAiThinking(false);
     setLastOutcomeBanner(null);
+    if (match && !match.matchComplete) {
+      const parked: SavedMatchSession = {
+        version: 1,
+        screen: screen === 'inningsBreak' ? 'inningsBreak' : 'playing',
+        autoResumeOnLoad: false,
+        savedAt: Date.now(),
+        selectedDeliveryType,
+        selectedDeliveryLength,
+        match: { ...match, isPaused: false },
+      };
+      saveMatchSession(parked);
+      setSavedSession(parked);
+    }
     setMatch(null);
     setActiveFixtureId(null);
     setScreen('tournamentHub');
-  }, [clearTimers]);
+  }, [clearTimers, match, screen, selectedDeliveryType, selectedDeliveryLength]);
 
   const handleExitToMenu = useCallback(() => {
     soundFx.playClick();
@@ -630,10 +714,73 @@ export default function App() {
     setIsAnimatingBall(false);
     setAiThinking(false);
     setLastOutcomeBanner(null);
+    if (match && !match.matchComplete) {
+      const parked: SavedMatchSession = {
+        version: 1,
+        screen: screen === 'inningsBreak' ? 'inningsBreak' : 'playing',
+        autoResumeOnLoad: false,
+        savedAt: Date.now(),
+        selectedDeliveryType,
+        selectedDeliveryLength,
+        match: { ...match, isPaused: false },
+      };
+      saveMatchSession(parked);
+      setSavedSession(parked);
+    }
     setMatch(null);
     setActiveFixtureId(null);
     setScreen('menu');
-  }, [clearTimers]);
+  }, [clearTimers, match, screen, selectedDeliveryType, selectedDeliveryLength]);
+
+  const handleResumeSavedMatch = useCallback(() => {
+    const latest = savedSession ?? loadSavedMatchSession();
+    if (!latest) return;
+    soundFx.playClick();
+    clearTimers();
+    setIsAnimatingBall(false);
+    setAiThinking(false);
+    setLastOutcomeBanner(null);
+
+    const restoredMatch: MatchState = { ...latest.match, isPaused: false };
+    const bowlerStyle = getBowlingStyle(getActiveInnings(restoredMatch).bowlerName);
+    const restoredDelivery: DeliveryType =
+      bowlerStyle === 'spin'
+        ? isSpinDelivery(latest.selectedDeliveryType)
+          ? latest.selectedDeliveryType
+          : 'off_spin'
+        : isSpinDelivery(latest.selectedDeliveryType)
+        ? 'fast'
+        : latest.selectedDeliveryType;
+
+    setMode(restoredMatch.mode);
+    setFormat(restoredMatch.format);
+    setPitchCondition(restoredMatch.pitchCondition);
+    setDifficulty(restoredMatch.difficulty);
+    setHomeTeamId(restoredMatch.homeTeamId);
+    setAwayTeamId(restoredMatch.awayTeamId);
+    setTotalOvers(restoredMatch.totalOvers);
+    setOversPerDay(restoredMatch.oversPerDay);
+    setActiveFixtureId(restoredMatch.activeTournamentMatchId ?? null);
+    setSelectedDeliveryType(restoredDelivery);
+    setSelectedDeliveryLength(latest.selectedDeliveryLength);
+    setMatch(restoredMatch);
+    setScreen(latest.screen);
+
+    const activeSession: SavedMatchSession = {
+      ...latest,
+      autoResumeOnLoad: true,
+      selectedDeliveryType: restoredDelivery,
+      match: restoredMatch,
+    };
+    saveMatchSession(activeSession);
+    setSavedSession(activeSession);
+  }, [savedSession, clearTimers]);
+
+  const handleDiscardSavedMatch = useCallback(() => {
+    soundFx.playClick();
+    clearSavedMatchSession();
+    setSavedSession(null);
+  }, []);
 
   // Tournament handlers
   const handleStartTournament = useCallback(
@@ -646,11 +793,15 @@ export default function App() {
     }) => {
       soundFx.playClick();
       setPitchCondition(params.pitchCondition);
+      if (savedSession?.match.activeTournamentMatchId) {
+        clearSavedMatchSession();
+        setSavedSession(null);
+      }
       const created = createTournament(params);
       setTournament(created);
       setScreen('tournamentHub');
     },
-    []
+    [savedSession]
   );
 
   const handleChangeTournamentPitch = useCallback((nextPitch: PitchCondition) => {
@@ -708,25 +859,40 @@ export default function App() {
     [tournament]
   );
 
-  const handleSimFixture = useCallback((fixtureId: string) => {
-    soundFx.playClick();
-    setTournament((prev) => (prev ? simulateTournamentFixture(prev, fixtureId) : prev));
-  }, []);
+  const handleSimFixture = useCallback(
+    (fixtureId: string) => {
+      soundFx.playClick();
+      if (savedSession?.match.activeTournamentMatchId === fixtureId) {
+        clearSavedMatchSession();
+        setSavedSession(null);
+      }
+      setTournament((prev) => (prev ? simulateTournamentFixture(prev, fixtureId) : prev));
+    },
+    [savedSession]
+  );
 
   const handleSimToUserOrNext = useCallback((stopAtUser: boolean) => {
     soundFx.playClick();
+    if (savedSession?.match.activeTournamentMatchId) {
+      clearSavedMatchSession();
+      setSavedSession(null);
+    }
     setTournament((prev) => {
       if (!prev) return prev;
       return stopAtUser ? simulateNextMatches(prev, true) : simulateStage(prev);
     });
-  }, []);
+  }, [savedSession]);
 
   // Global keyboard shortcuts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (screen === 'menu' && (e.key === 'Enter' || e.key === ' ')) {
         e.preventDefault();
-        handleNavigate('mode');
+        if (savedSession) {
+          handleResumeSavedMatch();
+        } else {
+          handleNavigate('mode');
+        }
         return;
       }
 
@@ -761,6 +927,8 @@ export default function App() {
   }, [
     screen,
     match,
+    savedSession,
+    handleResumeSavedMatch,
     handleNavigate,
     handleToggleMute,
     handleTogglePause,
@@ -804,6 +972,7 @@ export default function App() {
         tossWinner={tossWinner}
         aiChoice={aiChoice}
         isTournamentMatch={Boolean(activeFixtureId)}
+        savedMatch={savedSession}
         onNavigate={handleNavigate}
         onSelectMode={handleSelectMode}
         onSelectFormat={handleSelectFormat}
@@ -815,6 +984,8 @@ export default function App() {
         onCallToss={handleCallToss}
         onStartFromToss={handleStartFromToss}
         onQuickStart={() => handleNavigate('mode')}
+        onResumeSavedMatch={handleResumeSavedMatch}
+        onDiscardSavedMatch={handleDiscardSavedMatch}
       />
 
       <TournamentHub

@@ -17,10 +17,13 @@ import {
   ClipboardList,
   Coins,
   Play,
+  RotateCcw,
   Shield,
+  Trash2,
   Trophy,
   Users,
 } from 'lucide-react';
+import { formatSavedMatchSummary, SavedMatchSession } from '../game/matchStorage';
 
 interface MenuFlowProps {
   screen: ScreenId;
@@ -37,6 +40,7 @@ interface MenuFlowProps {
   tossWinner: 'home' | 'away' | null;
   aiChoice: 'bat' | 'bowl' | null;
   isTournamentMatch?: boolean;
+  savedMatch?: SavedMatchSession | null;
   onNavigate: (screen: ScreenId) => void;
   onSelectMode: (mode: GameMode) => void;
   onSelectFormat: (format: MatchFormat) => void;
@@ -48,6 +52,8 @@ interface MenuFlowProps {
   onCallToss: (call: 'heads' | 'tails') => void;
   onStartFromToss: (homeBatsFirst: boolean) => void;
   onQuickStart: () => void;
+  onResumeSavedMatch?: () => void;
+  onDiscardSavedMatch?: () => void;
 }
 
 export const MenuFlow: React.FC<MenuFlowProps> = ({
@@ -62,6 +68,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
   tossWinner,
   aiChoice,
   isTournamentMatch,
+  savedMatch,
   onNavigate,
   onSelectMode,
   onSelectFormat,
@@ -73,6 +80,8 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
   onCallToss,
   onStartFromToss,
   onQuickStart,
+  onResumeSavedMatch,
+  onDiscardSavedMatch,
 }) => {
   const [league, setLeague] = useState<LeagueId>('international');
   const [showSquads, setShowSquads] = useState(false);
@@ -121,7 +130,45 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             Stadium Edition · Offline Ready
           </p>
 
-          <div className="mt-10 flex flex-col gap-3.5 w-full max-w-xs">
+          <div className="mt-7 sm:mt-9 flex flex-col gap-3 w-full max-w-xs">
+            {savedMatch && onResumeSavedMatch && (
+              <div
+                data-testid="resume-match-card"
+                className="flex items-stretch gap-1.5 w-full"
+              >
+                <button
+                  type="button"
+                  data-testid="resume-match-btn"
+                  onClick={onResumeSavedMatch}
+                  className="flex-1 min-w-0 flex items-center gap-2.5 py-3 px-4 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 text-left transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-cyan-400 shadow-[0_0_24px_rgba(250,204,21,0.28)]"
+                >
+                  <RotateCcw className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold tracking-widest uppercase text-xs leading-tight">
+                      Resume Match
+                    </div>
+                    <div className="text-[11px] font-mono-num font-semibold text-slate-900 truncate mt-0.5">
+                      {formatSavedMatchSummary(savedMatch).title}
+                    </div>
+                    <div className="text-[10px] font-mono-num text-slate-800/85 truncate">
+                      {formatSavedMatchSummary(savedMatch).subtitle}
+                    </div>
+                  </div>
+                </button>
+                {onDiscardSavedMatch && (
+                  <button
+                    type="button"
+                    aria-label="Discard saved match"
+                    title="Discard saved match"
+                    onClick={onDiscardSavedMatch}
+                    className="px-2.5 rounded-lg bg-[#0d1936]/90 border border-rose-500/45 text-rose-300 hover:bg-rose-500/20 hover:border-rose-400 flex items-center justify-center cursor-pointer shrink-0"
+                  >
+                    <Trash2 className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            )}
+
             <button
               type="button"
               data-start="true"
@@ -129,7 +176,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
               className="inline-flex items-center justify-center gap-2.5 w-full py-3.5 px-6 rounded-lg bg-[#0d1936]/90 border border-amber-400/85 text-amber-300 hover:bg-amber-400 hover:text-slate-950 font-semibold tracking-widest uppercase text-sm transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-cyan-400"
             >
               <Play className="w-4 h-4 fill-current" aria-hidden="true" />
-              Start Match
+              {savedMatch ? 'New Match' : 'Start Match'}
             </button>
 
             <button
@@ -153,7 +200,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             <PWAInstallButton />
           </div>
 
-          <p className="fixed bottom-5 left-1/2 -translate-x-1/2 text-xs text-slate-400/85 tracking-wide whitespace-nowrap">
+          <p className="mt-6 pb-2 text-[11px] sm:text-xs text-slate-400/85 tracking-wide">
             Enter / Space to Start · Keys 1–8 for Shots · P to Pause
           </p>
         </main>
