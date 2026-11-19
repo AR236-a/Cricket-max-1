@@ -104,7 +104,7 @@ export const OfflineIndicator: React.FC = () => {
     <div
       role="status"
       data-testid="offline-indicator"
-      className="pointer-events-none fixed top-[88px] right-3 sm:top-[104px] sm:right-4 z-40 flex items-center gap-1.5 rounded-lg bg-amber-500/95 px-2.5 py-1 text-[11px] font-semibold text-slate-950 shadow-lg border border-amber-200/80"
+      className="pointer-events-none fixed top-[154px] right-3 sm:top-[104px] sm:right-4 z-40 flex items-center gap-1.5 rounded-lg bg-amber-500/95 px-2.5 py-1 text-[11px] font-semibold text-slate-950 shadow-lg border border-amber-200/80"
     >
       <WifiOff className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
       <span className="hidden sm:inline">Offline Mode · Local Cache</span>

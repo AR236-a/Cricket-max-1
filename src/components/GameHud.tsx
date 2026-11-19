@@ -162,122 +162,151 @@ export const GameHud: React.FC<GameHudProps> = ({
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between">
       {/* TOP SCOREBOARD HUD */}
       <header className="pointer-events-auto w-full bg-[#060f24]/92 border-b border-cyan-500/35 px-3 sm:px-6 py-2">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
-          {/* Left: Batting Team Score */}
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <TeamBadge team={batTeam} size="sm" />
-            <div className="flex items-baseline gap-1.5 sm:gap-2.5">
-              <span className="hidden sm:inline text-xs font-semibold tracking-wider text-slate-300 uppercase">
-                {batTeam.code}
-              </span>
-              <span className="font-display font-mono-num text-xl sm:text-3xl font-bold text-amber-400 leading-none whitespace-nowrap">
-                {active.runs}/{active.wickets}
-              </span>
-              <span className="text-[11px] text-slate-400 font-mono-num hidden md:inline">
-                {isTest ? `(Inn ${match.inningsNumber})` : `(${active.wickets} wkts)`}
-              </span>
-            </div>
-          </div>
-
-          {/* Center: Overs & Run Rate / Test Day + Pitch */}
-          <div className="flex flex-col items-center text-center shrink-0">
-            {isTest ? (
-              <>
-                <div className="font-mono-num text-xs sm:text-base font-bold text-cyan-300 tracking-wide whitespace-nowrap">
-                  Day {match.currentDay}/5 · {formatOvers(active.ballsBowled)} ov
-                </div>
-                <div className="text-[10px] sm:text-[11px] font-mono-num text-slate-300 whitespace-nowrap">
-                  Today {formatOvers(match.ballsToday)}/{match.oversPerDay}
-                  <span className="hidden sm:inline">
-                    {' '}
-                    · RR: {rr} · {PITCH_META[match.pitchCondition ?? 'hard'].label} Pitch
-                  </span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="font-mono-num text-xs sm:text-base font-bold text-cyan-300 tracking-wide whitespace-nowrap">
-                  {formatOvers(active.ballsBowled)} / {match.totalOvers}
-                </div>
-                <div className="text-[10px] sm:text-[11px] font-mono-num text-slate-400 whitespace-nowrap">
-                  RR: {rr}
-                  {rrr ? ` · RRR: ${rrr}` : ''}
-                  <span className="hidden sm:inline">
-                    {' '}
-                    · {PITCH_META[match.pitchCondition ?? 'hard'].label} Pitch
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Right: Bowling / Target / Lead + Utility buttons */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <TeamBadge team={bowlTeam} size="sm" />
-              <div className="text-right hidden sm:block">
-                <div className="text-xs font-semibold text-slate-300">{bowlTeam.code}</div>
-                <div className="text-xs font-mono-num text-amber-300 whitespace-nowrap">
-                  {isTest
-                    ? testLeadText
-                    : isChase && runsNeeded !== null && ballsRemaining !== null
-                    ? `Need ${runsNeeded} in ${ballsRemaining}b (T:${match.target})`
-                    : 'Bowling'}
-                </div>
-              </div>
-              {isChase && runsNeeded !== null && ballsRemaining !== null && (
-                <span className="sm:hidden text-[11px] font-mono-num text-amber-300 whitespace-nowrap">
-                  {runsNeeded} off {ballsRemaining}b
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            {/* Left: Batting Team Score */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <TeamBadge team={batTeam} size="sm" />
+              <div className="flex items-baseline gap-1.5 sm:gap-2.5">
+                <span className="hidden sm:inline text-xs font-semibold tracking-wider text-slate-300 uppercase">
+                  {batTeam.code}
                 </span>
+                <span className="font-display font-mono-num text-2xl sm:text-3xl font-bold text-amber-400 leading-none whitespace-nowrap">
+                  {active.runs}/{active.wickets}
+                </span>
+                <span
+                  className={`text-[11px] text-slate-400 font-mono-num whitespace-nowrap ${
+                    isTest ? 'inline' : 'hidden md:inline'
+                  }`}
+                >
+                  {isTest ? `(Inn ${match.inningsNumber})` : `(${active.wickets} wkts)`}
+                </span>
+              </div>
+            </div>
+
+            {/* Center: Overs & Run Rate / Test Day + Pitch (Desktop / Tablet) */}
+            <div className="hidden sm:flex flex-col items-center text-center shrink-0">
+              {isTest ? (
+                <>
+                  <div className="font-mono-num text-base font-bold text-cyan-300 tracking-wide whitespace-nowrap">
+                    Day {match.currentDay}/5 · {formatOvers(active.ballsBowled)} ov
+                  </div>
+                  <div className="text-[11px] font-mono-num text-slate-300 whitespace-nowrap">
+                    Today {formatOvers(match.ballsToday)}/{match.oversPerDay} · RR: {rr} ·{' '}
+                    {PITCH_META[match.pitchCondition ?? 'hard'].label} Pitch
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="font-mono-num text-base font-bold text-cyan-300 tracking-wide whitespace-nowrap">
+                    {formatOvers(active.ballsBowled)} / {match.totalOvers}
+                  </div>
+                  <div className="text-[11px] font-mono-num text-slate-400 whitespace-nowrap">
+                    RR: {rr}
+                    {rrr ? ` · RRR: ${rrr}` : ''} · {PITCH_META[match.pitchCondition ?? 'hard'].label} Pitch
+                  </div>
+                </>
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 sm:ml-2">
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label="View squads and scorecard"
-                onClick={(e) => {
-                  e.currentTarget.blur();
-                  setShowScorecard((s) => !s);
-                }}
-                className="w-8 h-8 rounded-md bg-[#0d1936] border border-cyan-500/35 hover:border-cyan-300 flex items-center justify-center text-cyan-200 cursor-pointer"
-              >
-                <Users className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label={muted ? 'Unmute audio' : 'Mute audio'}
-                onClick={(e) => {
-                  e.currentTarget.blur();
-                  onToggleMute();
-                }}
-                className="w-8 h-8 rounded-md bg-[#0d1936] border border-cyan-500/35 hover:border-cyan-300 flex items-center justify-center text-cyan-200 cursor-pointer"
-              >
-                {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              </button>
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label="Pause match"
-                onClick={(e) => {
-                  e.currentTarget.blur();
-                  onTogglePause();
-                }}
-                className="w-8 h-8 rounded-md bg-[#0d1936] border border-cyan-500/35 hover:border-amber-300 flex items-center justify-center text-amber-300 cursor-pointer"
-              >
-                <Pause className="w-4 h-4" />
-              </button>
+            {/* Right: Bowling / Target / Lead + Utility buttons */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <TeamBadge team={bowlTeam} size="sm" />
+                <div className="text-right hidden sm:block">
+                  <div className="text-xs font-semibold text-slate-300">{bowlTeam.code}</div>
+                  <div className="text-xs font-mono-num text-amber-300 whitespace-nowrap">
+                    {isTest
+                      ? testLeadText
+                      : isChase && runsNeeded !== null && ballsRemaining !== null
+                      ? `Need ${runsNeeded} in ${ballsRemaining}b (T:${match.target})`
+                      : 'Bowling'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 sm:ml-2">
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-label="View squads and scorecard"
+                  onClick={(e) => {
+                    e.currentTarget.blur();
+                    setShowScorecard((s) => !s);
+                  }}
+                  className="w-8 h-8 rounded-md bg-[#0d1936] border border-cyan-500/35 hover:border-cyan-300 flex items-center justify-center text-cyan-200 cursor-pointer"
+                >
+                  <Users className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-label={muted ? 'Unmute audio' : 'Mute audio'}
+                  onClick={(e) => {
+                    e.currentTarget.blur();
+                    onToggleMute();
+                  }}
+                  className="w-8 h-8 rounded-md bg-[#0d1936] border border-cyan-500/35 hover:border-cyan-300 flex items-center justify-center text-cyan-200 cursor-pointer"
+                >
+                  {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                </button>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-label="Pause match"
+                  onClick={(e) => {
+                    e.currentTarget.blur();
+                    onTogglePause();
+                  }}
+                  className="w-8 h-8 rounded-md bg-[#0d1936] border border-cyan-500/35 hover:border-amber-300 flex items-center justify-center text-amber-300 cursor-pointer"
+                >
+                  <Pause className="w-4 h-4" />
+                </button>
+              </div>
             </div>
+          </div>
+
+          {/* Mobile Secondary Strip: Day / Overs / RR / Lead or Target (prevents score/day collision) */}
+          <div
+            data-testid="mobile-match-strip"
+            className="sm:hidden mt-1.5 pt-1.5 border-t border-cyan-500/20 flex items-center justify-between gap-2 text-[11px] font-mono-num"
+          >
+            {isTest ? (
+              <>
+                <span className="font-bold text-cyan-300 whitespace-nowrap shrink-0">
+                  Day {match.currentDay}/5 · {formatOvers(active.ballsBowled)} ov
+                </span>
+                <span className="text-slate-300 whitespace-nowrap shrink-0">
+                  Today {formatOvers(match.ballsToday)}/{match.oversPerDay}
+                </span>
+                <span className="text-amber-300 font-semibold truncate text-right">
+                  {match.inningsNumber === 1 ? `RR ${rr}` : testLeadText}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="font-bold text-cyan-300 whitespace-nowrap shrink-0">
+                  {formatOvers(active.ballsBowled)}/{match.totalOvers} ov
+                </span>
+                <span className="text-slate-300 whitespace-nowrap shrink-0">
+                  RR {rr}
+                  {rrr ? ` · RRR ${rrr}` : ''}
+                </span>
+                <span className="text-amber-300 font-semibold whitespace-nowrap shrink-0">
+                  {isChase && runsNeeded !== null && ballsRemaining !== null
+                    ? `Need ${runsNeeded} in ${ballsRemaining}b`
+                    : `${PITCH_META[match.pitchCondition ?? 'hard'].label} Pitch`}
+                </span>
+              </>
+            )}
           </div>
         </div>
       </header>
 
       {/* OVER BALL TRACKER & ON-FIELD BATTER CARDS */}
       <div className="relative flex-1 w-full">
-        {/* Top Row: 6-Ball Over Tracker + Bowler Chip (collision-free flex row) */}
-        <div className="w-full px-3 sm:px-4 pt-2.5 flex items-center justify-between gap-2">
+        {/* Top Row: 6-Ball Over Tracker + Declare + Bowler Chip */}
+        <div className="w-full px-3 sm:px-4 pt-2 flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-2 gap-y-1.5">
           <div
             aria-label="Current over balls"
             className="flex items-center gap-1 sm:gap-1.5 shrink-0"
@@ -308,7 +337,7 @@ export const GameHud: React.FC<GameHudProps> = ({
             })}
           </div>
 
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 max-w-full ml-auto">
             {canDeclare && (
               <button
                 type="button"
@@ -319,11 +348,15 @@ export const GameHud: React.FC<GameHudProps> = ({
                 Declare
               </button>
             )}
-            <div className="px-2.5 sm:px-3 py-1 rounded-md bg-[#060f24]/85 border border-cyan-500/30 text-[11px] sm:text-xs text-slate-200 font-mono-num truncate flex items-center gap-1.5">
-              <span className="hidden sm:inline">Bowler: </span>
-              <span className="text-cyan-300 font-semibold">{active.bowlerName}</span>
+            <div
+              className={`px-2.5 sm:px-3 py-1 rounded-md bg-[#060f24]/85 border border-cyan-500/30 text-[11px] sm:text-xs text-slate-200 font-mono-num flex items-center gap-1.5 min-w-0 ${
+                canDeclare ? '' : 'max-w-[162px] sm:max-w-none'
+              }`}
+            >
+              <span className="hidden sm:inline shrink-0">Bowler: </span>
+              <span className="text-cyan-300 font-semibold truncate">{active.bowlerName}</span>
               <span
-                className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${
                   activeBowlerStyle === 'spin'
                     ? 'bg-purple-500/25 text-purple-200 border border-purple-400/50'
                     : 'bg-amber-500/25 text-amber-200 border border-amber-400/50'
@@ -331,7 +364,7 @@ export const GameHud: React.FC<GameHudProps> = ({
               >
                 {activeBowlerStyle.toUpperCase()}
               </span>
-              <span>({active.bowlerWickets}-{active.bowlerRunsConceded})</span>
+              <span className="shrink-0">({active.bowlerWickets}-{active.bowlerRunsConceded})</span>
             </div>
           </div>
         </div>
@@ -870,12 +903,12 @@ export const GameHud: React.FC<GameHudProps> = ({
           data-testid="day-completed-popup"
           className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/88 flex items-center justify-center p-4"
         >
-          <div className="w-full max-w-lg max-h-[86vh] rounded-xl bg-[#0b1530] border-2 border-amber-400/75 p-6 flex flex-col gap-4">
+          <div className="w-full max-w-lg max-h-[86vh] rounded-xl bg-[#0b1530] border-2 border-amber-400/75 p-4 sm:p-6 flex flex-col gap-4">
             <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
-              <div className="flex items-center gap-2.5">
-                <Calendar className="w-6 h-6 text-amber-400" aria-hidden="true" />
-                <div className="text-left">
-                  <h2 className="font-display text-3xl font-bold tracking-wider text-amber-400 leading-none">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Calendar className="w-6 h-6 text-amber-400 shrink-0" aria-hidden="true" />
+                <div className="text-left min-w-0">
+                  <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-wider text-amber-400 leading-none">
                     STUMPS · DAY {match.pendingDayPopup.completedDay} COMPLETED
                   </h2>
                   <p className="text-xs font-mono-num text-cyan-300 mt-1">
@@ -897,16 +930,16 @@ export const GameHud: React.FC<GameHudProps> = ({
                   return (
                     <div
                       key={num}
-                      className="flex items-center justify-between text-xs border-b border-slate-800/70 pb-1.5 last:border-none last:pb-0"
+                      className="flex items-center justify-between gap-2 text-xs border-b border-slate-800/70 pb-1.5 last:border-none last:pb-0"
                     >
-                      <div className="flex items-center gap-2 font-semibold text-white">
+                      <div className="flex items-center gap-2 font-semibold text-white min-w-0">
                         <TeamBadge team={innTeam} size="sm" />
-                        <span>
+                        <span className="truncate">
                           {innTeam.name} ({num}
                           {num === 1 ? 'st' : num === 2 ? 'nd' : num === 3 ? 'rd' : 'th'} Inn)
                         </span>
                       </div>
-                      <span className="font-mono-num text-amber-300 font-bold">
+                      <span className="font-mono-num text-amber-300 font-bold whitespace-nowrap shrink-0">
                         {inn.runs}/{inn.wickets}
                         {inn.declared ? 'd' : ''} ({formatOvers(inn.ballsBowled)} ov)
                       </span>
@@ -925,19 +958,19 @@ export const GameHud: React.FC<GameHudProps> = ({
                   <div className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
                     Not Out Batters ({batTeam.code})
                   </div>
-                  <div className="text-xs text-slate-200 flex justify-between font-mono-num">
-                    <span>
+                  <div className="text-xs text-slate-200 flex items-center justify-between gap-2 font-mono-num">
+                    <span className="truncate">
                       {striker?.name}* ({strikerHand === 'left' ? 'LHB' : 'RHB'})
                     </span>
-                    <span className="text-amber-300 font-bold">
+                    <span className="text-amber-300 font-bold shrink-0">
                       {striker?.runs ?? 0}({striker?.balls ?? 0})
                     </span>
                   </div>
-                  <div className="text-xs text-slate-300 flex justify-between font-mono-num">
-                    <span>
+                  <div className="text-xs text-slate-300 flex items-center justify-between gap-2 font-mono-num">
+                    <span className="truncate">
                       {nonStriker?.name} ({nonStrikerHand === 'left' ? 'LHB' : 'RHB'})
                     </span>
-                    <span className="text-amber-300">
+                    <span className="text-amber-300 shrink-0">
                       {nonStriker?.runs ?? 0}({nonStriker?.balls ?? 0})
                     </span>
                   </div>
@@ -947,9 +980,9 @@ export const GameHud: React.FC<GameHudProps> = ({
                   <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">
                     Bowling Figures ({bowlTeam.code})
                   </div>
-                  <div className="text-xs text-slate-200 flex justify-between font-mono-num">
-                    <span>{active.bowlerName}</span>
-                    <span className="text-cyan-300 font-bold">
+                  <div className="text-xs text-slate-200 flex items-center justify-between gap-2 font-mono-num">
+                    <span className="truncate">{active.bowlerName}</span>
+                    <span className="text-cyan-300 font-bold shrink-0">
                       {active.bowlerWickets}-{active.bowlerRunsConceded}
                     </span>
                   </div>
