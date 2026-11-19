@@ -10,6 +10,7 @@ import {
   ScreenId,
 } from '../game/types';
 import { TeamBadge } from './TeamBadge';
+import { PWAInstallButton } from './PWAInstallButton';
 import {
   ArrowLeft,
   Bot,
@@ -114,10 +115,10 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
       {screen === 'menu' && (
         <main className="flex flex-col items-center text-center max-w-3xl w-full px-4">
           <h1 className="font-display text-5xl sm:text-7xl md:text-[5.25rem] font-bold tracking-wider text-amber-400 title-glow select-none leading-none whitespace-nowrap">
-            CRICKET PRO
+            CRICKET MAX
           </h1>
-          <p className="mt-3 text-sm sm:text-base tracking-[0.42em] uppercase text-cyan-400 font-semibold whitespace-nowrap">
-            Stadium Edition
+          <p className="mt-3 text-sm sm:text-base tracking-[0.38em] uppercase text-cyan-400 font-semibold whitespace-nowrap">
+            Stadium Edition · Offline Ready
           </p>
 
           <div className="mt-10 flex flex-col gap-3.5 w-full max-w-xs">
@@ -148,6 +149,8 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
               <ClipboardList className="w-4 h-4 text-cyan-300" aria-hidden="true" />
               How to Play
             </button>
+
+            <PWAInstallButton />
           </div>
 
           <p className="fixed bottom-5 left-1/2 -translate-x-1/2 text-xs text-slate-400/85 tracking-wide whitespace-nowrap">

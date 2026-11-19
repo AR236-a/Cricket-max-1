@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GameHud } from './components/GameHud';
 import { MenuFlow } from './components/MenuFlow';
+import { OfflineIndicator } from './components/PWAInstallButton';
 import { BallAnimTrigger, StadiumCanvas } from './components/StadiumCanvas';
 import { TournamentHub } from './components/TournamentHub';
 import {
@@ -860,6 +861,8 @@ export default function App() {
         onReturnToTournament={handleReturnToTournament}
         onExitToMenu={handleExitToMenu}
       />
+
+      <OfflineIndicator />
     </div>
   );
 }
