@@ -1,0 +1,6 @@
+{
+  "name": "Cricket Pro — Stadium Edition",
+  "description": "An interactive 2D stadium cricket game featuring International and IPL teams, Player vs AI and Player vs Player modes, 8 batting shots, 6 bowling variations, coin toss, and live ball-by-ball stadium simulation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
