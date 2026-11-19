@@ -207,13 +207,18 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
 
       if (!playing) return;
 
-      const topSafe = 68;
-      const bottomSafe = 178;
-      const availH = Math.max(260, height - topSafe - bottomSafe);
+      const isMobile = width < 640;
+      const topSafe = isMobile ? 72 : 68;
+      const bottomSafe = isMobile ? Math.min(height * 0.34, 285) : Math.min(height * 0.28, 220);
+      const availH = Math.max(220, height - topSafe - bottomSafe);
       const cx = width * 0.5;
       const cy = topSafe + availH * 0.5;
-      const rx = Math.min(width * 0.44, availH * 0.86);
-      const ry = Math.min(availH * 0.46, rx * 0.56);
+      const rx = isMobile
+        ? Math.min(width * 0.46, availH * 0.72)
+        : Math.min(width * 0.44, availH * 0.86);
+      const ry = isMobile
+        ? Math.min(availH * 0.46, Math.max(rx * 0.78, availH * 0.38))
+        : Math.min(availH * 0.46, rx * 0.56);
 
       // Floodlights
       const towers = [
@@ -272,8 +277,8 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       bgCtx.restore();
 
       // Central Pitch colored & textured by pitchCondition
-      const pitchW = Math.max(26, rx * 0.13);
-      const pitchH = Math.max(120, ry * 0.92);
+      const pitchW = Math.max(24, rx * 0.13);
+      const pitchH = Math.max(125, ry * 0.92);
       const pitchX = cx - pitchW / 2;
       const pitchY = cy - pitchH / 2;
       const pitchMode = propsRef.current.pitchCondition;
@@ -358,6 +363,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
     let impactSpawnedForId = -1;
     let rafId = 0;
     let lastDrawTime = 0;
+    let drewPausedFrame = false;
 
     const render = (now: number) => {
       rafId = requestAnimationFrame(render);
@@ -378,11 +384,16 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       const anim = animStateRef.current;
       const hasActiveMotion = anim.active || anim.trauma > 0 || anim.crowdExcitement > 0 || particlesRef.current.some((p) => p.active);
 
+      if (paused && !hasActiveMotion && !bgDirtyRef.current && drewPausedFrame) {
+        return;
+      }
+
       // Throttle idle ambience to ~24fps so Playwright/UI stays silky-responsive on software rendering
       if (!hasActiveMotion && now - lastDrawTime < 42) {
         return;
       }
       lastDrawTime = now;
+      drewPausedFrame = paused && !hasActiveMotion;
 
       const rawDt = (now - lastTime) / 1000;
       lastTime = now;
@@ -457,13 +468,18 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       ctx.save();
       ctx.translate(shakeX, shakeY);
 
-      const topSafe = 68;
-      const bottomSafe = 178;
-      const availH = Math.max(260, height - topSafe - bottomSafe);
+      const isMobile = width < 640;
+      const topSafe = isMobile ? 72 : 68;
+      const bottomSafe = isMobile ? Math.min(height * 0.34, 285) : Math.min(height * 0.28, 220);
+      const availH = Math.max(220, height - topSafe - bottomSafe);
       const cx = width * 0.5;
       const cy = topSafe + availH * 0.5;
-      const rx = Math.min(width * 0.44, availH * 0.86);
-      const ry = Math.min(availH * 0.46, rx * 0.56);
+      const rx = isMobile
+        ? Math.min(width * 0.46, availH * 0.72)
+        : Math.min(width * 0.44, availH * 0.86);
+      const ry = isMobile
+        ? Math.min(availH * 0.46, Math.max(rx * 0.78, availH * 0.38))
+        : Math.min(availH * 0.46, rx * 0.56);
 
       // Animated Stadium Crowd Dots
       const exciteBoost = 1 + anim.crowdExcitement * 3.5;
@@ -478,7 +494,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       }
       ctx.globalAlpha = 1;
 
-      const pitchH = Math.max(150, ry * 0.92);
+      const pitchH = Math.max(125, ry * 0.92);
       const pitchY = cy - pitchH / 2;
       const topCreaseY = pitchY + pitchH * 0.14;
       const botCreaseY = pitchY + pitchH * 0.86;

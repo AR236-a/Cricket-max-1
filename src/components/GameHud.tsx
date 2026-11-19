@@ -379,8 +379,43 @@ export const GameHud: React.FC<GameHudProps> = ({
           </span>
         </div>
 
+        {/* Mobile Live Striker & Non-Striker Strip */}
+        <div className="sm:hidden absolute bottom-11 left-2 right-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#060f24]/92 border border-cyan-500/35 min-w-0">
+            <span
+              className={`px-1 py-0.5 rounded text-[8px] font-mono-num font-bold shrink-0 ${
+                strikerHand === 'left'
+                  ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40'
+                  : 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/40'
+              }`}
+            >
+              {strikerHand === 'left' ? 'LHB' : 'RHB'}
+            </span>
+            <span className="text-[11px] font-semibold text-white truncate">{striker?.name}*</span>
+            <span className="font-mono-num text-[11px] font-bold text-amber-400 shrink-0">
+              {striker?.runs ?? 0}({striker?.balls ?? 0})
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#060f24]/92 border border-cyan-500/35 min-w-0">
+            <span
+              className={`px-1 py-0.5 rounded text-[8px] font-mono-num font-bold shrink-0 ${
+                nonStrikerHand === 'left'
+                  ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40'
+                  : 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/40'
+              }`}
+            >
+              {nonStrikerHand === 'left' ? 'LHB' : 'RHB'}
+            </span>
+            <span className="text-[11px] font-semibold text-slate-200 truncate">{nonStriker?.name}</span>
+            <span className="font-mono-num text-[11px] font-bold text-amber-400 shrink-0">
+              {nonStriker?.runs ?? 0}({nonStriker?.balls ?? 0})
+            </span>
+          </div>
+        </div>
+
         {/* Partnership badge centered below pitch */}
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-md bg-[#060f24]/88 border border-slate-500/40 text-xs font-mono-num text-slate-200 whitespace-nowrap">
+        <div className="absolute bottom-2.5 sm:bottom-3 left-1/2 -translate-x-1/2 px-3 sm:px-3.5 py-1 rounded-md bg-[#060f24]/88 border border-slate-500/40 text-[11px] sm:text-xs font-mono-num text-slate-200 whitespace-nowrap">
           Partnership: {active.partnershipRuns}({active.partnershipBalls})
         </div>
 
@@ -415,7 +450,7 @@ export const GameHud: React.FC<GameHudProps> = ({
       </div>
 
       {/* BOTTOM REAL-TIME COMMENTARY BOX & CONTROL DECK */}
-      <footer className="pointer-events-auto w-full bg-[#050d20]/96 border-t border-cyan-500/30 px-3 sm:px-5 py-2 space-y-2">
+      <footer className="pointer-events-auto w-full bg-[#050d20]/96 border-t border-cyan-500/30 px-2.5 sm:px-5 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] space-y-2">
         {/* Real-Time Ball-by-Ball Commentary Box */}
         <div
           data-testid="commentary-box"
@@ -468,7 +503,7 @@ export const GameHud: React.FC<GameHudProps> = ({
         {/* Controls */}
         <div className="max-w-6xl mx-auto">
           {playerBatting ? (
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
               {SHOTS_ORDER.map((shot) => {
                 const meta = SHOT_META[shot];
                 return (
@@ -478,7 +513,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                     disabled={controlsLocked}
                     onClick={() => onSelectShot(shot)}
                     title={meta.description}
-                    className={`py-2.5 px-3 rounded-lg bg-[#08132b] border ${meta.border} ${meta.text} font-semibold tracking-wider text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-amber-400`}
+                    className={`min-h-[42px] py-2 px-1.5 sm:py-2.5 sm:px-3 rounded-lg bg-[#08132b] border ${meta.border} ${meta.text} font-semibold tracking-wider text-[11px] sm:text-sm transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-amber-400`}
                   >
                     <span>{meta.label}</span>
                     <span className="hidden md:inline text-[10px] text-slate-400 font-mono-num">

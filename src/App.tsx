@@ -779,7 +779,7 @@ export default function App() {
     <div className="relative w-full h-full overflow-hidden select-none">
       <StadiumCanvas
         isPlaying={screen === 'playing' || screen === 'inningsBreak' || screen === 'result'}
-        isPaused={Boolean(match?.isPaused)}
+        isPaused={Boolean(match?.isPaused || match?.pendingOverPopup || match?.pendingDayPopup)}
         format={match?.format ?? format}
         pitchCondition={match?.pitchCondition ?? pitchCondition}
         strikerHand={strikerHand}

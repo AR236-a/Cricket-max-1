@@ -93,7 +93,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
   const leagueTeams = getTeamsByLeague(league);
 
   return (
-    <div className="fixed inset-0 z-20 flex flex-col items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-20 flex flex-col items-center overflow-y-auto p-4 sm:p-6 pt-16 sm:pt-6">
       {screen !== 'menu' && (
         <button
           type="button"
@@ -104,7 +104,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             else if (screen === 'overs') onNavigate('teams');
             else if (screen === 'toss') onNavigate(isTournamentMatch ? 'tournamentHub' : 'overs');
           }}
-          className="fixed top-5 left-5 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#09132a]/90 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-300 transition-colors text-xs font-semibold tracking-wider whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
+          className="fixed top-3 left-3 sm:top-5 sm:left-5 z-30 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#09132a]/95 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-300 transition-colors text-xs font-semibold tracking-wider whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
         >
           <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
           BACK
@@ -113,11 +113,11 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
 
       {/* MAIN MENU */}
       {screen === 'menu' && (
-        <main className="flex flex-col items-center text-center max-w-3xl w-full px-4">
+        <main className="my-auto flex flex-col items-center text-center max-w-3xl w-full px-4">
           <h1 className="font-display text-5xl sm:text-7xl md:text-[5.25rem] font-bold tracking-wider text-amber-400 title-glow select-none leading-none whitespace-nowrap">
             CRICKET MAX
           </h1>
-          <p className="mt-3 text-sm sm:text-base tracking-[0.38em] uppercase text-cyan-400 font-semibold whitespace-nowrap">
+          <p className="mt-3 text-xs sm:text-base tracking-[0.28em] sm:tracking-[0.38em] uppercase text-cyan-400 font-semibold whitespace-nowrap">
             Stadium Edition · Offline Ready
           </p>
 
