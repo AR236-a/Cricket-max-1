@@ -656,8 +656,10 @@ export default function App() {
       const nextScr = pendingScreenAfterMilestone;
       setPendingScreenAfterMilestone(null);
       setScreen(nextScr);
+    } else if (match?.matchComplete) {
+      setScreen('result');
     }
-  }, [pendingScreenAfterMilestone]);
+  }, [pendingScreenAfterMilestone, match?.matchComplete]);
 
   const handleProceedToNewDay = useCallback(() => {
     soundFx.playClick();
@@ -940,6 +942,13 @@ export default function App() {
       }
 
       if (screen === 'playing' && match) {
+        if (match.pendingMilestonePopup) {
+          if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+            e.preventDefault();
+            handleDismissMilestonePopup();
+          }
+          return;
+        }
         if (e.key === 'Escape' || e.key.toLowerCase() === 'p') {
           e.preventDefault();
           handleTogglePause();
@@ -947,7 +956,6 @@ export default function App() {
         }
         if (
           match.isPaused ||
-          match.pendingMilestonePopup ||
           match.pendingOverPopup ||
           match.pendingDayPopup
         ) {
@@ -977,6 +985,7 @@ export default function App() {
     handleNavigate,
     handleToggleMute,
     handleTogglePause,
+    handleDismissMilestonePopup,
     handleSelectShot,
     handleBowl,
   ]);

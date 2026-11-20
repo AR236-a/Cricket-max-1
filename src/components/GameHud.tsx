@@ -859,7 +859,7 @@ export const GameHud: React.FC<GameHudProps> = ({
             const isFiveFer = ms.kind === '5fer';
             const badgeText = isFiveFer ? '5W' : ms.kind;
             return (
-              <div className="animate-outcome-pop w-full max-w-md rounded-xl bg-[#0b1530] border-2 border-amber-400 p-6 text-center space-y-4 shadow-[0_0_44px_rgba(250,204,21,0.38)]">
+              <div className="animate-modal-pop w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl bg-[#0b1530] border-2 border-amber-400 p-6 text-center space-y-4 shadow-[0_0_44px_rgba(250,204,21,0.38)]">
                 <div className="flex items-center justify-center gap-2">
                   <div className="w-16 h-16 rounded-full bg-amber-400/15 border-2 border-amber-400 flex items-center justify-center">
                     <span className="font-display text-3xl font-bold text-amber-300">

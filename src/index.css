@@ -83,3 +83,22 @@
 .animate-outcome-pop {
   animation: outcomePop 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+@keyframes modalPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.84) translateY(14px);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.03) translateY(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0px);
+  }
+}
+
+.animate-modal-pop {
+  animation: modalPop 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
