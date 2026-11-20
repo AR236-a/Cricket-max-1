@@ -11,6 +11,7 @@ import {
   chooseAiShot,
   createInitialMatchState,
   declareTestInnings,
+  dismissMilestonePopup,
   dismissOverPopup,
   getActiveInnings,
   isPlayerBattingNow,
@@ -36,6 +37,7 @@ import {
   simulateTournamentFixture,
 } from './game/tournaments';
 import {
+  BowlingSide,
   DeliveryLength,
   DeliveryResolution,
   DeliveryType,
@@ -195,6 +197,9 @@ export default function App() {
     id: number;
     resolution: DeliveryResolution;
   } | null>(null);
+  const [pendingScreenAfterMilestone, setPendingScreenAfterMilestone] = useState<
+    'inningsBreak' | 'result' | null
+  >(null);
   const [muted, setMuted] = useState(false);
 
   const pendingResolutionRef = useRef<DeliveryResolution | null>(null);
@@ -400,6 +405,7 @@ export default function App() {
       setIsAnimatingBall(false);
       setAiThinking(false);
       setLastOutcomeBanner(null);
+      setPendingScreenAfterMilestone(null);
       setScreen('playing');
     },
     [
@@ -460,7 +466,13 @@ export default function App() {
     setMatch((prev) => {
       if (!prev) return prev;
       const applied = applyDeliveryToMatch(prev, res);
-      if (applied.enteredInningsBreak) {
+      if (applied.nextState.pendingMilestonePopup) {
+        if (applied.enteredInningsBreak) {
+          setPendingScreenAfterMilestone('inningsBreak');
+        } else if (applied.matchFinished) {
+          setPendingScreenAfterMilestone('result');
+        }
+      } else if (applied.enteredInningsBreak) {
         const t = window.setTimeout(() => setScreen('inningsBreak'), 450);
         timersRef.current.push(t);
       } else if (applied.matchFinished) {
@@ -478,6 +490,7 @@ export default function App() {
         isAnimatingBall ||
         aiThinking ||
         match.isPaused ||
+        match.pendingMilestonePopup ||
         match.pendingOverPopup ||
         match.pendingDayPopup ||
         screen !== 'playing'
@@ -515,6 +528,7 @@ export default function App() {
         bowlerName: active.bowlerName,
         format: match.format,
         pitchCondition: match.pitchCondition,
+        bowlingSide: match.bowlingSide ?? 'over',
       });
 
       triggerDeliveryAnimation(deliveryType, deliveryLength, resolution);
@@ -528,6 +542,7 @@ export default function App() {
       isAnimatingBall ||
       aiThinking ||
       match.isPaused ||
+      match.pendingMilestonePopup ||
       match.pendingOverPopup ||
       match.pendingDayPopup ||
       screen !== 'playing'
@@ -579,6 +594,7 @@ export default function App() {
         bowlerName: currentActive.bowlerName,
         format: match.format,
         pitchCondition: match.pitchCondition,
+        bowlingSide: match.bowlingSide ?? 'over',
       });
       triggerDeliveryAnimation(effectiveDeliveryType, selectedDeliveryLength, resolution);
     }, 360);
@@ -592,6 +608,11 @@ export default function App() {
     selectedDeliveryLength,
     triggerDeliveryAnimation,
   ]);
+
+  const handleSelectBowlingSide = useCallback((side: BowlingSide) => {
+    soundFx.playClick();
+    setMatch((prev) => (prev ? { ...prev, bowlingSide: side } : prev));
+  }, []);
 
   const handleToggleMute = useCallback(() => {
     setMuted((prev) => {
@@ -612,6 +633,7 @@ export default function App() {
     setIsAnimatingBall(false);
     setAiThinking(false);
     setLastOutcomeBanner(null);
+    setPendingScreenAfterMilestone(null);
     setMatch((prev) => {
       if (!prev) return prev;
       const next = startNextInnings(prev);
@@ -626,6 +648,16 @@ export default function App() {
     soundFx.playClick();
     setMatch((prev) => (prev ? dismissOverPopup(prev) : prev));
   }, []);
+
+  const handleDismissMilestonePopup = useCallback(() => {
+    soundFx.playClick();
+    setMatch((prev) => (prev ? dismissMilestonePopup(prev) : prev));
+    if (pendingScreenAfterMilestone) {
+      const nextScr = pendingScreenAfterMilestone;
+      setPendingScreenAfterMilestone(null);
+      setScreen(nextScr);
+    }
+  }, [pendingScreenAfterMilestone]);
 
   const handleProceedToNewDay = useCallback(() => {
     soundFx.playClick();
@@ -643,6 +675,7 @@ export default function App() {
       isAnimatingBall ||
       aiThinking ||
       match.isPaused ||
+      match.pendingMilestonePopup ||
       match.pendingOverPopup ||
       match.pendingDayPopup ||
       screen !== 'playing'
@@ -666,6 +699,7 @@ export default function App() {
     setIsAnimatingBall(false);
     setAiThinking(false);
     setLastOutcomeBanner(null);
+    setPendingScreenAfterMilestone(null);
     if (!match) return;
     const restarted = createInitialMatchState({
       mode: match.mode,
@@ -705,6 +739,7 @@ export default function App() {
     }
     setMatch(null);
     setActiveFixtureId(null);
+    setPendingScreenAfterMilestone(null);
     setScreen('tournamentHub');
   }, [clearTimers, match, screen, selectedDeliveryType, selectedDeliveryLength]);
 
@@ -729,6 +764,7 @@ export default function App() {
     }
     setMatch(null);
     setActiveFixtureId(null);
+    setPendingScreenAfterMilestone(null);
     setScreen('menu');
   }, [clearTimers, match, screen, selectedDeliveryType, selectedDeliveryLength]);
 
@@ -740,6 +776,7 @@ export default function App() {
     setIsAnimatingBall(false);
     setAiThinking(false);
     setLastOutcomeBanner(null);
+    setPendingScreenAfterMilestone(null);
 
     const restoredMatch: MatchState = { ...latest.match, isPaused: false };
     const bowlerStyle = getBowlingStyle(getActiveInnings(restoredMatch).bowlerName);
@@ -790,6 +827,7 @@ export default function App() {
       difficulty: Difficulty;
       pitchCondition: PitchCondition;
       oversPerDay?: 30 | 60 | 90;
+      testCount?: 3 | 5;
     }) => {
       soundFx.playClick();
       setPitchCondition(params.pitchCondition);
@@ -907,7 +945,14 @@ export default function App() {
           handleTogglePause();
           return;
         }
-        if (match.isPaused || match.pendingOverPopup || match.pendingDayPopup) return;
+        if (
+          match.isPaused ||
+          match.pendingMilestonePopup ||
+          match.pendingOverPopup ||
+          match.pendingDayPopup
+        ) {
+          return;
+        }
 
         if (isPlayerBattingNow(match)) {
           const mapped = SHOT_KEYS[e.key];
@@ -947,10 +992,16 @@ export default function App() {
     <div className="relative w-full h-full overflow-hidden select-none">
       <StadiumCanvas
         isPlaying={screen === 'playing' || screen === 'inningsBreak' || screen === 'result'}
-        isPaused={Boolean(match?.isPaused || match?.pendingOverPopup || match?.pendingDayPopup)}
+        isPaused={Boolean(
+          match?.isPaused ||
+            match?.pendingMilestonePopup ||
+            match?.pendingOverPopup ||
+            match?.pendingDayPopup
+        )}
         format={match?.format ?? format}
         pitchCondition={match?.pitchCondition ?? pitchCondition}
         strikerHand={strikerHand}
+        bowlingSide={match?.bowlingSide ?? 'over'}
         battingTeam={battingTeam}
         bowlingTeam={bowlingTeam}
         animTrigger={animTrigger}
@@ -1020,9 +1071,11 @@ export default function App() {
           soundFx.playClick();
           setSelectedDeliveryLength(l);
         }}
+        onSelectBowlingSide={handleSelectBowlingSide}
         onBowl={handleBowl}
         onDeclareInnings={handleDeclareInnings}
         onDismissOverPopup={handleDismissOverPopup}
+        onDismissMilestonePopup={handleDismissMilestonePopup}
         onProceedToNewDay={handleProceedToNewDay}
         onContinueNewDay={handleContinueNewDay}
         onToggleMute={handleToggleMute}

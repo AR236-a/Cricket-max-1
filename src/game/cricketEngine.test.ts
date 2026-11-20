@@ -10,6 +10,7 @@ import {
   chooseAiShot,
   computePredictedTotal,
   createInitialMatchState,
+  dismissMilestonePopup,
   dismissOverPopup,
   formatOvers,
   isSpinDelivery,
@@ -463,3 +464,135 @@ test('Test Mode triggers day_completed scorecard popup, advances to new_day prom
   assert.equal(match.runsToday, 0);
   assert.equal(match.wicketsToday, 0);
 });
+
+test('batter milestones (50, 100, 150, 200) and bowler 5-wicket haul trigger celebration popups', () => {
+  let match = createInitialMatchState({
+    mode: 'ai',
+    format: 'test',
+    difficulty: 'medium',
+    homeTeamId: 'ind',
+    awayTeamId: 'aus',
+    totalOvers: 90,
+    oversPerDay: 90,
+    homeBatsFirst: true,
+  });
+
+  // Hit 6s on even runs or use 4s so the same striker (index 0) stays on strike up to 200
+  const milestonesSeen: string[] = [];
+  for (let i = 0; i < 50; i++) {
+    match = applyDeliveryToMatch(match, {
+      runs: 4,
+      isWicket: false,
+      isBoundaryFour: true,
+      isBoundarySix: false,
+      outcomeLabel: 'FOUR! 4',
+      ballSymbol: '4',
+      commentary: 'Four!',
+      hitAngleRad: 0,
+      hitDistanceFactor: 0.9,
+      shotUsed: 'drive',
+      deliveryUsed: 'fast',
+      lengthUsed: 'full',
+    }).nextState;
+    if (match.pendingOverPopup) {
+      match = dismissOverPopup(match);
+    }
+    if (match.pendingMilestonePopup) {
+      milestonesSeen.push(match.pendingMilestonePopup.kind);
+      match = dismissMilestonePopup(match);
+    }
+  }
+  // 50 * 4 = 200 (note at end of over strike swaps unless we reset, so check at least 50/100 or test striker 1+2!)
+  assert.ok(milestonesSeen.includes('50'), '50 milestone should trigger');
+
+  // Test explicit single-striker crossing 50 -> 100 -> 150 -> 200 on balls 1..5 of overs
+  let singleMatch = createInitialMatchState({
+    mode: 'ai',
+    format: 'test',
+    difficulty: 'medium',
+    homeTeamId: 'ind',
+    awayTeamId: 'aus',
+    totalOvers: 90,
+    oversPerDay: 90,
+    homeBatsFirst: true,
+  });
+  const batterMilestones: string[] = [];
+  for (let ball = 0; ball < 60; ball++) {
+    // Give striker 0 sixes on balls 0..4 of each over, and 1 run on ball 5 so over-end swap keeps striker 0 on strike!
+    const isEndBall = ball % 6 === 5;
+    const runs = isEndBall ? 1 : 6;
+    singleMatch = applyDeliveryToMatch(singleMatch, {
+      runs,
+      isWicket: false,
+      isBoundaryFour: false,
+      isBoundarySix: runs === 6,
+      outcomeLabel: runs === 6 ? 'SIX! 6' : '1 RUN',
+      ballSymbol: String(runs),
+      commentary: 'Shot',
+      hitAngleRad: 0,
+      hitDistanceFactor: 1,
+      shotUsed: 'loft',
+      deliveryUsed: 'fast',
+      lengthUsed: 'full',
+    }).nextState;
+    if (singleMatch.pendingMilestonePopup) {
+      batterMilestones.push(singleMatch.pendingMilestonePopup.kind);
+      singleMatch = dismissMilestonePopup(singleMatch);
+    }
+    if (singleMatch.pendingOverPopup) {
+      singleMatch = dismissOverPopup(singleMatch);
+    }
+  }
+  assert.deepEqual(batterMilestones, ['50', '100', '150', '200']);
+
+  // Test bowler 5-wicket haul popup within first over
+  let bowlMatch = createInitialMatchState({
+    mode: 'ai',
+    difficulty: 'medium',
+    homeTeamId: 'ind',
+    awayTeamId: 'aus',
+    totalOvers: 5,
+    homeBatsFirst: true,
+  });
+  const bowlMilestones: string[] = [];
+  for (let w = 0; w < 5; w++) {
+    bowlMatch = applyDeliveryToMatch(bowlMatch, {
+      runs: 0,
+      isWicket: true,
+      wicketKind: 'Bowled',
+      isBoundaryFour: false,
+      isBoundarySix: false,
+      outcomeLabel: 'OUT! BOWLED',
+      ballSymbol: 'W',
+      commentary: 'Bowled!',
+      hitAngleRad: 0,
+      hitDistanceFactor: 0.1,
+      shotUsed: 'drive',
+      deliveryUsed: 'yorker',
+      lengthUsed: 'full',
+    }).nextState;
+    if (bowlMatch.pendingMilestonePopup) {
+      bowlMilestones.push(bowlMatch.pendingMilestonePopup.kind);
+      assert.equal(bowlMatch.pendingMilestonePopup.wickets, 5);
+      bowlMatch = dismissMilestonePopup(bowlMatch);
+      assert.equal(bowlMatch.pendingMilestonePopup, null);
+    }
+  }
+  assert.deepEqual(bowlMilestones, ['5fer']);
+});
+
+test('resolveDelivery supports around the wicket bowlingSide and mentions angle in commentary', () => {
+  const res = resolveDelivery({
+    shot: 'drive',
+    deliveryType: 'fast',
+    deliveryLength: 'good',
+    difficulty: 'medium',
+    playerIsBatting: false,
+    strikerName: 'Steve Smith',
+    bowlerName: 'Jasprit Bumrah',
+    bowlingSide: 'round',
+    rng: () => 0.5,
+  });
+  assert.match(res.commentary, /around the wicket/i);
+});
+

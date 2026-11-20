@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import {
   BattingHand,
+  BowlingSide,
   DeliveryLength,
   DeliveryResolution,
   DeliveryType,
@@ -22,6 +23,7 @@ interface StadiumCanvasProps {
   format?: MatchFormat;
   pitchCondition?: PitchCondition;
   strikerHand?: BattingHand;
+  bowlingSide?: BowlingSide;
   battingTeam: Team;
   bowlingTeam: Team;
   animTrigger: BallAnimTrigger | null;
@@ -75,6 +77,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
   format = 'limited',
   pitchCondition = 'hard',
   strikerHand = 'right',
+  bowlingSide = 'over',
   battingTeam,
   bowlingTeam,
   animTrigger,
@@ -87,6 +90,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
     format,
     pitchCondition,
     strikerHand,
+    bowlingSide,
     battingTeam,
     bowlingTeam,
     onAnimationComplete,
@@ -97,6 +101,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
     format,
     pitchCondition,
     strikerHand,
+    bowlingSide,
     battingTeam,
     bowlingTeam,
     onAnimationComplete,
@@ -539,9 +544,13 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
         }
       }
 
-      // Bowler
-      const bowlerX = cx - 14;
+      // Bowler side (Over vs Around the Wicket, respecting LHB/RHB)
+      const isLeftHanded = propsRef.current.strikerHand === 'left';
+      const isAroundWicket = propsRef.current.bowlingSide === 'round';
+      const bowlerOnRight = isLeftHanded ? !isAroundWicket : isAroundWicket;
+      const bowlerX = bowlerOnRight ? cx + 14 : cx - 14;
       const bowlerY = topCreaseY + bowlerYOffset;
+      const ballReleaseX = bowlerOnRight ? bowlerX - 6 : bowlerX + 6;
       ctx.fillStyle = bowlJersey;
       ctx.beginPath();
       ctx.roundRect(bowlerX - 6, bowlerY - 8, 12, 16, 4);
@@ -567,19 +576,18 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       ctx.arc(wkX, wkY - 7, 4.5, 0, Math.PI * 2);
       ctx.fill();
 
-      let ballX = bowlerX + 6;
+      let ballX = ballReleaseX;
       let ballY = bowlerY - 4;
       let ballRadius = 4.2;
       const ballVisible = anim.active;
 
-      const isLeftHanded = propsRef.current.strikerHand === 'left';
       const batContactX = isLeftHanded ? cx - 6 : cx + 6;
       const batContactY = botCreaseY - 4;
 
       if (anim.active && anim.trigger) {
         const { deliveryType, deliveryLength, resolution } = anim.trigger;
         if (tNorm < 0.2) {
-          ballX = bowlerX + 6;
+          ballX = ballReleaseX;
           ballY = bowlerY - 4;
         } else if (tNorm < 0.45) {
           const f = (tNorm - 0.2) / 0.25;
@@ -608,7 +616,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
               f > 0.58 ? -(f - 0.58) * 35 * dryTurnBoost : Math.sin(f * Math.PI) * 6;
           }
 
-          ballX = bowlerX + 6 + (batContactX - (bowlerX + 6)) * f + lateralCurve;
+          ballX = ballReleaseX + (batContactX - ballReleaseX) * f + lateralCurve;
           ballY = bowlerY - 4 + (batContactY - (bowlerY - 4)) * f;
           const bouncePoint =
             deliveryLength === 'full' ? 0.78 : deliveryLength === 'short' ? 0.35 : 0.58;

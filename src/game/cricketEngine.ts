@@ -3,6 +3,7 @@ import { getBowlingStyle, getTeamById } from './teams';
 import {
   BatterStats,
   BowlerSpellStat,
+  BowlingSide,
   BowlingStyle,
   CommentaryEntry,
   DeliveryLength,
@@ -13,6 +14,8 @@ import {
   InningsState,
   MatchFormat,
   MatchState,
+  MilestoneCelebration,
+  MilestoneKind,
   OverProgressPoint,
   PitchCondition,
   ShotType,
@@ -248,8 +251,10 @@ export function createInitialMatchState(params: {
     ballsToday: 0,
     runsToday: 0,
     wicketsToday: 0,
+    bowlingSide: 'over',
     pendingOverPopup: null,
     pendingDayPopup: null,
+    pendingMilestonePopup: null,
     tossCaller: 'home',
     tossWinner: params.tossWinner ?? 'home',
     tossCoinResult: params.tossCoinResult ?? 'heads',
@@ -490,11 +495,13 @@ export function resolveDelivery(params: {
   bowlerName: string;
   format?: MatchFormat;
   pitchCondition?: PitchCondition;
+  bowlingSide?: BowlingSide;
   rng?: () => number;
 }): DeliveryResolution {
   const rng = params.rng ?? Math.random;
   const { shot, deliveryType, deliveryLength, difficulty, playerIsBatting } = params;
   const pitchCondition: PitchCondition = params.pitchCondition ?? 'hard';
+  const bowlingSide: BowlingSide = params.bowlingSide ?? 'over';
   const spin = isSpinDelivery(deliveryType);
 
   let matchup = 0;
@@ -596,6 +603,14 @@ export function resolveDelivery(params: {
     wicketMod += 0.015;
   } else if (deliveryType === 'arm_ball') {
     dotMod += 0.03;
+  }
+
+  // Angle variation for Around the Wicket vs Over the Wicket
+  if (bowlingSide === 'round') {
+    dotMod += 0.015;
+    if (deliveryType === 'yorker' || deliveryType === 'arm_ball' || deliveryType === 'bouncer') {
+      wicketMod += 0.012;
+    }
   }
 
   // In Test cricket, slightly fewer wild 6s and more patient accumulation / bowling threat
@@ -727,6 +742,7 @@ export function resolveDelivery(params: {
     isWicket,
     wicketKind,
     pitchCondition,
+    bowlingSide,
   });
 
   return {
@@ -874,6 +890,7 @@ export function applyDeliveryToMatch(
 
   const nextBatters = active.batters.map((b) => ({ ...b }));
   const striker = nextBatters[active.strikerIndex];
+  const prevBatterRuns = striker.runs;
   striker.balls += 1;
 
   let runs = active.runs;
@@ -936,14 +953,58 @@ export function applyDeliveryToMatch(
     runs: 0,
     wickets: 0,
   };
+  const nextSpellForActiveBowler: BowlerSpellStat = {
+    balls: prevSpell.balls + 1,
+    runs: prevSpell.runs + ballRuns,
+    wickets: prevSpell.wickets + ballWicket,
+  };
   const bowlerSpells: Record<string, BowlerSpellStat> = {
     ...(active.bowlerSpells ?? {}),
-    [active.bowlerName]: {
-      balls: prevSpell.balls + 1,
-      runs: prevSpell.runs + ballRuns,
-      wickets: prevSpell.wickets + ballWicket,
-    },
+    [active.bowlerName]: nextSpellForActiveBowler,
   };
+
+  // Detect Batting Milestones (50, 100, 150, 200) or Bowler 5-Wicket Haul
+  let milestonePopup: MilestoneCelebration | null = null;
+  if (!resolution.isWicket) {
+    let crossed: MilestoneKind | null = null;
+    if (prevBatterRuns < 200 && striker.runs >= 200) crossed = '200';
+    else if (prevBatterRuns < 150 && striker.runs >= 150) crossed = '150';
+    else if (prevBatterRuns < 100 && striker.runs >= 100) crossed = '100';
+    else if (prevBatterRuns < 50 && striker.runs >= 50) crossed = '50';
+
+    if (crossed) {
+      const titleMap: Record<Exclude<MilestoneKind, '5fer'>, string> = {
+        '50': 'BRILLIANT HALF-CENTURY!',
+        '100': 'SENSATIONAL CENTURY!',
+        '150': 'MAGNIFICENT 150!',
+        '200': 'HISTORIC DOUBLE CENTURY!',
+      };
+      milestonePopup = {
+        kind: crossed,
+        playerName: striker.name,
+        teamId: active.battingTeamId,
+        title: titleMap[crossed],
+        subtitle: `${striker.runs}* (${striker.balls} balls · ${striker.fours}×4 · ${striker.sixes}×6)`,
+        runs: striker.runs,
+        balls: striker.balls,
+        fours: striker.fours,
+        sixes: striker.sixes,
+      };
+    }
+  } else if (prevSpell.wickets < 5 && nextSpellForActiveBowler.wickets >= 5) {
+    milestonePopup = {
+      kind: '5fer',
+      playerName: overBowlerName,
+      teamId: active.bowlingTeamId,
+      title: '5-WICKET HAUL!',
+      subtitle: `${nextSpellForActiveBowler.wickets}-${nextSpellForActiveBowler.runs} (${formatOvers(
+        nextSpellForActiveBowler.balls
+      )} ov)`,
+      wickets: nextSpellForActiveBowler.wickets,
+      runsConceded: nextSpellForActiveBowler.runs,
+      oversText: formatOvers(nextSpellForActiveBowler.balls),
+    };
+  }
 
   let overHistory: OverProgressPoint[] = active.overHistory ?? [];
   let currentOverRuns = nextOverRuns;
@@ -1036,6 +1097,7 @@ export function applyDeliveryToMatch(
       pvpTurnPhase: 'bowl_select',
       pendingOverPopup: null,
       pendingDayPopup: null,
+      pendingMilestonePopup: milestonePopup,
     },
     updatedInnings
   );
@@ -1217,6 +1279,14 @@ export function dismissOverPopup(state: MatchState): MatchState {
   return {
     ...state,
     pendingOverPopup: null,
+  };
+}
+
+export function dismissMilestonePopup(state: MatchState): MatchState {
+  if (!state.pendingMilestonePopup) return state;
+  return {
+    ...state,
+    pendingMilestonePopup: null,
   };
 }
 
@@ -1433,6 +1503,9 @@ export function simulateFullMatch(params: {
 
     const applied = applyDeliveryToMatch(state, res);
     state = applied.nextState;
+    if (state.pendingMilestonePopup) {
+      state = dismissMilestonePopup(state);
+    }
     if (state.pendingOverPopup) {
       state = dismissOverPopup(state);
     }

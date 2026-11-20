@@ -242,3 +242,39 @@ test('tournament tracks persistent batting averages, strike rates, and total wic
     Object.keys(combined).length >= Math.max(Object.keys(ipl.playerStats).length, Object.keys(t20.playerStats).length)
   );
 });
+
+test('BGT and Ashes support 3-Test series option, record POTM on fixtures, and accumulate playerStats', () => {
+  let bgt3 = createTournament({
+    type: 'bgt',
+    userTeamId: 'ind',
+    difficulty: 'medium',
+    oversPerDay: 90,
+    testCount: 3,
+  });
+  assert.equal(bgt3.testMatchCount, 3);
+  assert.equal(bgt3.fixtures.length, 3);
+  assert.equal(bgt3.fixtures[0].venue, 'Perth Stadium, Perth');
+  assert.equal(bgt3.fixtures[2].venue, 'SCG, Sydney');
+
+  bgt3 = simulateNextMatches(bgt3, false);
+  assert.equal(bgt3.stage, 'complete');
+  assert.ok(bgt3.championTeamId);
+  assert.ok(Object.keys(bgt3.playerStats).length > 10);
+  for (const fix of bgt3.fixtures) {
+    assert.equal(fix.completed, true);
+    assert.ok(fix.potm?.playerName);
+  }
+
+  const ashes3 = createTournament({
+    type: 'ashes',
+    userTeamId: 'eng',
+    difficulty: 'medium',
+    oversPerDay: 60,
+    testCount: 3,
+  });
+  assert.equal(ashes3.testMatchCount, 3);
+  assert.equal(ashes3.fixtures.length, 3);
+  assert.equal(ashes3.fixtures[0].venue, "Lord's, London");
+  assert.equal(ashes3.fixtures[2].venue, 'The Oval, London');
+});
+

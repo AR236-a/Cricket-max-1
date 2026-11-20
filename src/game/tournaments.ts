@@ -1,3 +1,4 @@
+import { computePlayerOfTheMatch } from './awards';
 import { simulateFullMatch } from './cricketEngine';
 import { getTeamById } from './teams';
 import {
@@ -223,8 +224,16 @@ export function createTournament(params: {
   difficulty: Difficulty;
   pitchCondition?: PitchCondition;
   oversPerDay?: 30 | 60 | 90;
+  testCount?: 3 | 5;
 }): TournamentState {
-  const { type, userTeamId, difficulty, pitchCondition = 'hard', oversPerDay = 90 } = params;
+  const {
+    type,
+    userTeamId,
+    difficulty,
+    pitchCondition = 'hard',
+    oversPerDay = 90,
+    testCount = 5,
+  } = params;
   const id = `${type}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 
   if (type === 't20_wc') {
@@ -345,13 +354,16 @@ export function createTournament(params: {
   }
 
   if (type === 'ashes') {
-    const venues = [
-      "Lord's, London",
-      'Edgbaston, Birmingham',
-      'Headingley, Leeds',
-      'Old Trafford, Manchester',
-      'The Oval, London',
-    ];
+    const venues =
+      testCount === 3
+        ? ["Lord's, London", 'Edgbaston, Birmingham', 'The Oval, London']
+        : [
+            "Lord's, London",
+            'Edgbaston, Birmingham',
+            'Headingley, Leeds',
+            'Old Trafford, Manchester',
+            'The Oval, London',
+          ];
     const fixtures: TournamentFixture[] = venues.map((venue, idx) => ({
       id: `ashes-${idx + 1}`,
       round: 'test_match',
@@ -371,6 +383,7 @@ export function createTournament(params: {
       format: 'test',
       pitchCondition,
       oversPerInningsOrDay: oversPerDay,
+      testMatchCount: testCount,
       userTeamId,
       difficulty,
       stage: 'series',
@@ -381,14 +394,17 @@ export function createTournament(params: {
     };
   }
 
-  // Border-Gavaskar Trophy (5 Tests: India vs Australia)
-  const bgtVenues = [
-    'Perth Stadium, Perth',
-    'Adelaide Oval, Adelaide',
-    'The Gabba, Brisbane',
-    'MCG, Melbourne',
-    'SCG, Sydney',
-  ];
+  // Border-Gavaskar Trophy (3 or 5 Tests: India vs Australia)
+  const bgtVenues =
+    testCount === 3
+      ? ['Perth Stadium, Perth', 'MCG, Melbourne', 'SCG, Sydney']
+      : [
+          'Perth Stadium, Perth',
+          'Adelaide Oval, Adelaide',
+          'The Gabba, Brisbane',
+          'MCG, Melbourne',
+          'SCG, Sydney',
+        ];
   const fixtures: TournamentFixture[] = bgtVenues.map((venue, idx) => ({
     id: `bgt-${idx + 1}`,
     round: 'test_match',
@@ -408,6 +424,7 @@ export function createTournament(params: {
     format: 'test',
     pitchCondition,
     oversPerInningsOrDay: oversPerDay,
+    testMatchCount: testCount,
     userTeamId,
     difficulty,
     stage: 'series',
@@ -440,6 +457,7 @@ export function applyMatchOutcomeToTournament(
   const winner = match.winnerTeamId;
   const homeScoreText = formatScoreText(match, targetFixture.homeTeamId);
   const awayScoreText = formatScoreText(match, targetFixture.awayTeamId);
+  const potm = computePlayerOfTheMatch(match) ?? undefined;
 
   const updatedFixtures = tournament.fixtures.map((f) =>
     f.id === fixtureId
@@ -450,6 +468,7 @@ export function applyMatchOutcomeToTournament(
           summary: match.resultSummary,
           homeScoreText,
           awayScoreText,
+          potm,
         }
       : f
   );

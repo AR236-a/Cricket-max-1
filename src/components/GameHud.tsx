@@ -14,8 +14,10 @@ import {
   SHOT_META,
   SPIN_DELIVERY_TYPES,
 } from '../game/cricketEngine';
+import { computePlayerOfTheMatch } from '../game/awards';
 import { getBattingHand, getBowlingStyle, getTeamById } from '../game/teams';
 import {
+  BowlingSide,
   DeliveryLength,
   DeliveryResolution,
   DeliveryType,
@@ -27,8 +29,10 @@ import {
 import { RunRateChart } from './RunRateChart';
 import { TeamBadge } from './TeamBadge';
 import {
+  Award,
   Calendar,
   Flag,
+  Flame,
   Home,
   Lock,
   Pause,
@@ -54,9 +58,11 @@ interface GameHudProps {
   onSelectShot: (shot: ShotType) => void;
   onSelectDeliveryType: (type: DeliveryType) => void;
   onSelectDeliveryLength: (len: DeliveryLength) => void;
+  onSelectBowlingSide: (side: BowlingSide) => void;
   onBowl: () => void;
   onDeclareInnings: () => void;
   onDismissOverPopup: () => void;
+  onDismissMilestonePopup: () => void;
   onProceedToNewDay: () => void;
   onContinueNewDay: () => void;
   onToggleMute: () => void;
@@ -92,9 +98,11 @@ export const GameHud: React.FC<GameHudProps> = ({
   onSelectShot,
   onSelectDeliveryType,
   onSelectDeliveryLength,
+  onSelectBowlingSide,
   onBowl,
   onDeclareInnings,
   onDismissOverPopup,
+  onDismissMilestonePopup,
   onProceedToNewDay,
   onContinueNewDay,
   onToggleMute,
@@ -130,7 +138,11 @@ export const GameHud: React.FC<GameHudProps> = ({
   const strikerHand = striker ? getBattingHand(striker.name) : 'right';
   const nonStrikerHand = nonStriker ? getBattingHand(nonStriker.name) : 'right';
   const playerBatting = isPlayerBattingNow(match);
-  const hasBlockingPopup = Boolean(match.pendingOverPopup) || Boolean(match.pendingDayPopup);
+  const currentBowlingSide: BowlingSide = match.bowlingSide ?? 'over';
+  const hasBlockingPopup =
+    Boolean(match.pendingMilestonePopup) ||
+    Boolean(match.pendingOverPopup) ||
+    Boolean(match.pendingDayPopup);
   const controlsLocked =
     isAnimatingBall || aiThinking || match.isPaused || screen !== 'playing' || hasBlockingPopup;
   const isTest = match.format === 'test';
@@ -153,10 +165,11 @@ export const GameHud: React.FC<GameHudProps> = ({
     ...(match.innings4 ? [{ num: 4, inn: match.innings4 }] : []),
   ];
 
-  // Top performers for modals
+  // Top performers & Player of the Match for modals
   const topScorer = playedInningsList
     .flatMap((item) => item.inn.batters)
     .sort((a, b) => b.runs - a.runs)[0];
+  const playerOfTheMatch = screen === 'result' ? computePlayerOfTheMatch(match) : null;
 
   return (
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between">
@@ -558,9 +571,9 @@ export const GameHud: React.FC<GameHudProps> = ({
             </div>
           ) : (
             <div className="space-y-2">
-              {/* Auto-Detected Bowler Style Control Lock (Pacer vs Spinner) */}
+              {/* Auto-Detected Bowler Style Control Lock (Pacer vs Spinner) + Side Switch (Over/Around) */}
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <div className="inline-flex items-center p-0.5 rounded-lg bg-[#08132b] border border-cyan-500/35">
                     <button
                       type="button"
@@ -571,14 +584,14 @@ export const GameHud: React.FC<GameHudProps> = ({
                           ? 'Locked: Current bowler is a Spinner'
                           : 'Pace & Seam deliveries enabled'
                       }
-                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap ${
+                      className={`inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap ${
                         effectiveBowlingTab === 'pace'
                           ? 'bg-amber-400 text-slate-950 cursor-pointer'
                           : 'text-slate-500 opacity-45 cursor-not-allowed'
                       }`}
                     >
                       {activeBowlerStyle !== 'pace' && <Lock className="w-3 h-3" aria-hidden="true" />}
-                      Pace & Seam (5)
+                      Pace (5)
                     </button>
                     <button
                       type="button"
@@ -589,26 +602,61 @@ export const GameHud: React.FC<GameHudProps> = ({
                           ? 'Locked: Current bowler is a Pacer'
                           : 'Spin Variations enabled'
                       }
-                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap ${
+                      className={`inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap ${
                         effectiveBowlingTab === 'spin'
                           ? 'bg-purple-400 text-slate-950 cursor-pointer'
                           : 'text-slate-500 opacity-45 cursor-not-allowed'
                       }`}
                     >
                       {activeBowlerStyle !== 'spin' && <Lock className="w-3 h-3" aria-hidden="true" />}
-                      Spin Variations (6)
+                      Spin (6)
                     </button>
                   </div>
 
-                  <span className="hidden md:inline text-[10px] font-mono-num text-cyan-200/85">
+                  {/* Bowler Side Selector (Over vs Around the Wicket) */}
+                  <div
+                    data-testid="bowling-side-toggle"
+                    role="group"
+                    aria-label="Bowling side"
+                    className="inline-flex items-center p-0.5 rounded-lg bg-[#08132b] border border-cyan-500/35"
+                  >
+                    <button
+                      type="button"
+                      disabled={controlsLocked}
+                      aria-pressed={currentBowlingSide === 'over'}
+                      onClick={() => onSelectBowlingSide('over')}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer disabled:opacity-45 ${
+                        currentBowlingSide === 'over'
+                          ? 'bg-cyan-400 text-slate-950'
+                          : 'text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      Over Wkt
+                    </button>
+                    <button
+                      type="button"
+                      disabled={controlsLocked}
+                      aria-pressed={currentBowlingSide === 'round'}
+                      onClick={() => onSelectBowlingSide('round')}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer disabled:opacity-45 ${
+                        currentBowlingSide === 'round'
+                          ? 'bg-cyan-400 text-slate-950'
+                          : 'text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      Around Wkt
+                    </button>
+                  </div>
+
+                  <span className="hidden lg:inline text-[10px] font-mono-num text-cyan-200/85">
                     {activeBowlerStyle === 'pace'
-                      ? `${active.bowlerName} (Pacer · Pace Enabled)`
-                      : `${active.bowlerName} (Spinner · Spin Enabled)`}
+                      ? `${active.bowlerName} (Pacer)`
+                      : `${active.bowlerName} (Spinner)`}
                   </span>
                 </div>
 
                 <span
-                  className={`text-[10px] font-mono-num font-semibold px-2 py-0.5 rounded border ${
+                  className={`hidden sm:inline-block text-[10px] font-mono-num font-semibold px-2 py-0.5 rounded border ${
                     PITCH_META[match.pitchCondition ?? 'hard'].badgeColor
                   }`}
                 >
@@ -796,8 +844,87 @@ export const GameHud: React.FC<GameHudProps> = ({
         </div>
       )}
 
+      {/* MILESTONE CELEBRATION POPUP (50 / 100 / 150 / 200 / 5-FER) */}
+      {match.pendingMilestonePopup && screen === 'playing' && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Player Milestone Celebration"
+          data-testid="milestone-celebration-popup"
+          className="pointer-events-auto fixed inset-0 z-40 bg-[#020612]/85 flex items-center justify-center p-4"
+        >
+          {(() => {
+            const ms = match.pendingMilestonePopup;
+            const msTeam = getTeamById(ms.teamId);
+            const isFiveFer = ms.kind === '5fer';
+            const badgeText = isFiveFer ? '5W' : ms.kind;
+            return (
+              <div className="animate-outcome-pop w-full max-w-md rounded-xl bg-[#0b1530] border-2 border-amber-400 p-6 text-center space-y-4 shadow-[0_0_44px_rgba(250,204,21,0.38)]">
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-16 h-16 rounded-full bg-amber-400/15 border-2 border-amber-400 flex items-center justify-center">
+                    <span className="font-display text-3xl font-bold text-amber-300">
+                      {badgeText}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/40 text-[11px] font-mono-num font-bold uppercase tracking-widest text-amber-300">
+                  <Flame className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
+                  {isFiveFer ? 'Bowling Milestone' : 'Batting Milestone'}
+                </div>
+
+                <div>
+                  <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-wider text-amber-300">
+                    {ms.title}
+                  </h2>
+                  <p className="text-xs sm:text-sm text-cyan-200 mt-1">{ms.subtitle}</p>
+                </div>
+
+                <div className="p-3.5 rounded-lg bg-[#070f24] border border-cyan-500/35 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0 text-left">
+                    <TeamBadge team={msTeam} size="sm" />
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-white truncate">{ms.playerName}</div>
+                      <div className="text-[11px] font-mono-num text-cyan-300">{msTeam.name}</div>
+                    </div>
+                  </div>
+                  {isFiveFer ? (
+                    <div className="text-right font-mono-num shrink-0">
+                      <div className="text-xl font-bold text-rose-300">
+                        {ms.wickets}-{ms.runsConceded}
+                      </div>
+                      <div className="text-[10px] text-slate-400">{ms.oversText} ov</div>
+                    </div>
+                  ) : (
+                    <div className="text-right font-mono-num shrink-0">
+                      <div className="text-xl font-bold text-amber-300">
+                        {ms.runs}* ({ms.balls})
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        {ms.fours ?? 0}x4 · {ms.sixes ?? 0}x6
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={onDismissMilestonePopup}
+                  className="w-full py-2.5 px-5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display text-lg font-bold tracking-wider uppercase cursor-pointer"
+                >
+                  {isFiveFer ? 'CELEBRATE 5-FER & CONTINUE ▶' : 'RAISE THE BAT & CONTINUE ▶'}
+                </button>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* END OF OVER POPUP */}
-      {match.pendingOverPopup && !match.pendingDayPopup && screen === 'playing' && (
+      {match.pendingOverPopup &&
+        !match.pendingMilestonePopup &&
+        !match.pendingDayPopup &&
+        screen === 'playing' && (
         <div
           role="dialog"
           aria-modal="true"
@@ -895,7 +1022,9 @@ export const GameHud: React.FC<GameHudProps> = ({
       )}
 
       {/* TEST MODE: DAY COMPLETED POPUP WITH SCORECARD */}
-      {match.pendingDayPopup?.phase === 'day_completed' && screen === 'playing' && (
+      {match.pendingDayPopup?.phase === 'day_completed' &&
+        !match.pendingMilestonePopup &&
+        screen === 'playing' && (
         <div
           role="dialog"
           aria-modal="true"
@@ -1005,7 +1134,9 @@ export const GameHud: React.FC<GameHudProps> = ({
       )}
 
       {/* TEST MODE: NEW DAY CONTINUOUS START POPUP */}
-      {match.pendingDayPopup?.phase === 'new_day' && screen === 'playing' && (
+      {match.pendingDayPopup?.phase === 'new_day' &&
+        !match.pendingMilestonePopup &&
+        screen === 'playing' && (
         <div
           role="dialog"
           aria-modal="true"
@@ -1199,11 +1330,34 @@ export const GameHud: React.FC<GameHudProps> = ({
               ))}
             </div>
 
-            {topScorer && (
-              <div className="text-xs font-mono-num text-slate-300">
-                Top Scorer: <span className="text-amber-300 font-semibold">{topScorer.name}</span>{' '}
-                {topScorer.runs}({topScorer.balls})
+            {playerOfTheMatch ? (
+              <div
+                data-testid="potm-award-card"
+                className="p-3 rounded-lg bg-[#070f24] border border-amber-400/45 flex items-center justify-between gap-2.5 text-left"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <TeamBadge team={getTeamById(playerOfTheMatch.teamId)} size="sm" />
+                  <div className="min-w-0">
+                    <div className="inline-flex items-center gap-1 text-[10px] font-mono-num font-bold uppercase tracking-widest text-amber-300">
+                      <Award className="w-3 h-3 text-amber-400" aria-hidden="true" />
+                      Player of the Match
+                    </div>
+                    <div className="text-sm font-bold text-white truncate">
+                      {playerOfTheMatch.playerName}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-xs font-mono-num font-semibold text-cyan-300 text-right shrink-0">
+                  {playerOfTheMatch.summary}
+                </div>
               </div>
+            ) : (
+              topScorer && (
+                <div className="text-xs font-mono-num text-slate-300">
+                  Top Scorer: <span className="text-amber-300 font-semibold">{topScorer.name}</span>{' '}
+                  {topScorer.runs}({topScorer.balls})
+                </div>
+              )
             )}
 
             <div className="flex items-center gap-3 pt-1">

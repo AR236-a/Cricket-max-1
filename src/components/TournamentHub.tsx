@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { computePlayerOfTheTournament } from '../game/awards';
 import { formatOvers, PITCH_META } from '../game/cricketEngine';
 import { getTeamById, TEAMS } from '../game/teams';
 import {
@@ -17,6 +18,7 @@ import {
   TournamentType,
 } from '../game/types';
 import { TeamBadge } from './TeamBadge';
+import { TrophyCelebration } from './TrophyCelebration';
 import { ArrowLeft, Award, BarChart3, FastForward, Play, Shield, Swords, Trash2, Trophy } from 'lucide-react';
 
 interface TournamentHubProps {
@@ -31,6 +33,7 @@ interface TournamentHubProps {
     difficulty: Difficulty;
     pitchCondition: PitchCondition;
     oversPerDay?: 30 | 60 | 90;
+    testCount?: 3 | 5;
   }) => void;
   onChangeTournamentPitch: (pitch: PitchCondition) => void;
   onResetCareerStats?: () => void;
@@ -74,16 +77,16 @@ const TOURNAMENT_CATALOG: Array<{
   {
     type: 'ashes',
     title: 'The Ashes Cup',
-    subtitle: '5-Test Bilateral Series · England vs Australia',
-    formatLabel: 'Test Mode · 30 / 60 / 90 Ov/Day',
+    subtitle: '3 or 5-Test Bilateral Series · England vs Australia',
+    formatLabel: 'Test Mode · 3 / 5 Tests · 30/60/90 Ov/Day',
     eligibleTeamIds: ['eng', 'aus'],
     isTest: true,
   },
   {
     type: 'bgt',
     title: 'Border-Gavaskar Trophy',
-    subtitle: '5-Test Bilateral Series · India vs Australia',
-    formatLabel: 'Test Mode · 30 / 60 / 90 Ov/Day',
+    subtitle: '3 or 5-Test Bilateral Series · India vs Australia',
+    formatLabel: 'Test Mode · 3 / 5 Tests · 30/60/90 Ov/Day',
     eligibleTeamIds: ['ind', 'aus'],
     isTest: true,
   },
@@ -107,9 +110,31 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [pitchCondition, setPitchCondition] = useState<PitchCondition>(defaultPitch);
   const [oversPerDay, setOversPerDay] = useState<30 | 60 | 90>(90);
+  const [testCount, setTestCount] = useState<3 | 5>(5);
   const [hubTab, setHubTab] = useState<'fixtures' | 'table' | 'stats'>('fixtures');
   const [statsScope, setStatsScope] = useState<'tournament' | 'career'>('tournament');
   const [statsTeamFilter, setStatsTeamFilter] = useState<'all' | 'user'>('all');
+  const [showTrophyModal, setShowTrophyModal] = useState(false);
+
+  const prevTournamentStatusRef = useRef<{ id: string; stage: string } | null>(null);
+
+  useEffect(() => {
+    if (!tournament) {
+      prevTournamentStatusRef.current = null;
+      setShowTrophyModal(false);
+      return;
+    }
+    const prev = prevTournamentStatusRef.current;
+    if (
+      prev &&
+      prev.id === tournament.id &&
+      prev.stage !== 'complete' &&
+      tournament.stage === 'complete'
+    ) {
+      setShowTrophyModal(true);
+    }
+    prevTournamentStatusRef.current = { id: tournament.id, stage: tournament.stage };
+  }, [tournament]);
 
   if (
     screen !== 'tournamentSelect' &&
@@ -118,6 +143,11 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
   ) {
     return null;
   }
+
+  const playerOfTournament =
+    tournament && tournament.stage === 'complete'
+      ? computePlayerOfTheTournament(tournament)
+      : null;
 
   const activeCatalog =
     TOURNAMENT_CATALOG.find((c) => c.type === selectedType) ?? TOURNAMENT_CATALOG[0];
@@ -132,7 +162,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-20 flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto">
+    <div className="fixed inset-0 z-20 flex flex-col items-center justify-start sm:justify-center p-3 sm:p-6 overflow-y-auto">
       <button
         type="button"
         onClick={() => {
@@ -140,7 +170,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
           else if (screen === 'tournamentSetup') onNavigate('tournamentSelect');
           else onNavigate('menu');
         }}
-        className="fixed top-4 left-4 z-30 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#09132a]/92 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-300 transition-colors text-xs font-semibold tracking-wider whitespace-nowrap cursor-pointer"
+        className="self-start mb-2 sm:mb-0 sm:fixed sm:top-4 sm:left-4 z-30 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#09132a]/92 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-300 transition-colors text-xs font-semibold tracking-wider whitespace-nowrap cursor-pointer shrink-0"
       >
         <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
         {screen === 'tournamentHub' ? 'MENU' : 'BACK'}
@@ -148,12 +178,12 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
 
       {/* 1. TOURNAMENT & SERIES CATALOG */}
       {screen === 'tournamentSelect' && (
-        <main className="w-full max-w-3xl flex flex-col items-center pt-10 pb-4">
+        <main className="w-full max-w-3xl flex flex-col items-center pt-2 sm:pt-10 pb-4">
           <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-wider text-amber-400 mb-2 text-center">
             TOURNAMENTS & SERIES
           </h2>
           <p className="text-xs sm:text-sm text-cyan-300/90 mb-5 text-center">
-            Full World Cup Structures, IPL Playoffs, and 5-Test Iconic Rivalries
+            World Cup Structures, IPL Playoffs, and 3 or 5-Test Iconic Rivalries
           </p>
 
           {tournament && (
@@ -208,7 +238,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
 
       {/* 2. TOURNAMENT / SERIES SETUP */}
       {screen === 'tournamentSetup' && (
-        <main className="w-full max-w-xl flex flex-col items-center pt-10 pb-4">
+        <main className="w-full max-w-xl flex flex-col items-center pt-2 sm:pt-10 pb-4">
           <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-wider text-amber-400 mb-1 text-center">
             {activeCatalog.title.toUpperCase()}
           </h2>
@@ -242,29 +272,54 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
             </div>
           </div>
 
-          {/* Overs per Day (for Test Series) */}
+          {/* Series Length & Overs per Day (for Test Series) */}
           {activeCatalog.isTest && (
-            <div className="w-full mb-4">
-              <div className="text-xs font-semibold tracking-wider uppercase text-slate-300 mb-2">
-                Overs Per Day (5-Day Test)
+            <>
+              <div className="w-full mb-4">
+                <div className="text-xs font-semibold tracking-wider uppercase text-slate-300 mb-2">
+                  Series Length
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {([3, 5] as const).map((cnt) => (
+                    <button
+                      key={cnt}
+                      type="button"
+                      data-testid={`test-count-${cnt}`}
+                      onClick={() => setTestCount(cnt)}
+                      className={`py-2.5 px-3 rounded-lg border font-mono-num text-sm font-bold transition-colors cursor-pointer ${
+                        testCount === cnt
+                          ? 'bg-amber-400 text-slate-950 border-amber-300'
+                          : 'bg-[#0b1530]/95 border-cyan-500/35 text-cyan-200 hover:border-cyan-300'
+                      }`}
+                    >
+                      {cnt} TEST SERIES
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-2.5">
-                {([30, 60, 90] as const).map((opd) => (
-                  <button
-                    key={opd}
-                    type="button"
-                    onClick={() => setOversPerDay(opd)}
-                    className={`py-2.5 px-3 rounded-lg border font-mono-num text-sm font-bold transition-colors cursor-pointer ${
-                      oversPerDay === opd
-                        ? 'bg-amber-400 text-slate-950 border-amber-300'
-                        : 'bg-[#0b1530]/95 border-cyan-500/35 text-cyan-200 hover:border-cyan-300'
-                    }`}
-                  >
-                    {opd} OV / DAY
-                  </button>
-                ))}
+
+              <div className="w-full mb-4">
+                <div className="text-xs font-semibold tracking-wider uppercase text-slate-300 mb-2">
+                  Overs Per Day (5-Day Test)
+                </div>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {([30, 60, 90] as const).map((opd) => (
+                    <button
+                      key={opd}
+                      type="button"
+                      onClick={() => setOversPerDay(opd)}
+                      className={`py-2.5 px-3 rounded-lg border font-mono-num text-sm font-bold transition-colors cursor-pointer ${
+                        oversPerDay === opd
+                          ? 'bg-amber-400 text-slate-950 border-amber-300'
+                          : 'bg-[#0b1530]/95 border-cyan-500/35 text-cyan-200 hover:border-cyan-300'
+                      }`}
+                    >
+                      {opd} OV / DAY
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            </>
           )}
 
           {/* Pitch Condition */}
@@ -329,18 +384,19 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
                 difficulty,
                 pitchCondition,
                 oversPerDay,
+                testCount: activeCatalog.isTest ? testCount : undefined,
               })
             }
             className="w-full py-3 px-6 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display text-lg font-bold tracking-widest uppercase cursor-pointer"
           >
-            {activeCatalog.isTest ? 'BEGIN TEST SERIES ▶' : 'START TOURNAMENT ▶'}
+            {activeCatalog.isTest ? `BEGIN ${testCount}-TEST SERIES ▶` : 'START TOURNAMENT ▶'}
           </button>
         </main>
       )}
 
       {/* 3. ACTIVE TOURNAMENT / SERIES HUB */}
       {screen === 'tournamentHub' && tournament && (
-        <main className="w-full max-w-5xl h-[88vh] flex flex-col gap-3 pt-10">
+        <main className="w-full max-w-5xl min-h-0 sm:h-[88vh] flex flex-col gap-3 pt-1 sm:pt-10 pb-6 sm:pb-0">
           {/* Top Hub Header */}
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-xl bg-[#0b1530]/95 border border-cyan-500/35">
             <div className="flex items-center gap-3">
@@ -351,7 +407,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
                 </h2>
                 <p className="text-xs text-cyan-300 font-mono-num mt-1">
                   {tournament.format === 'test'
-                    ? `Test Series · ${tournament.oversPerInningsOrDay} Overs/Day`
+                    ? `${tournament.testMatchCount ?? tournament.fixtures.length}-Test Series · ${tournament.oversPerInningsOrDay} Overs/Day`
                     : `${tournament.oversPerInningsOrDay} Overs`}
                   {' · '}Stage: {tournament.stage.toUpperCase()}
                 </p>
@@ -392,21 +448,23 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
 
               {tournament.stage !== 'complete' && (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => onSimToUserOrNext(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#102046] border border-cyan-400/50 text-cyan-200 hover:border-cyan-300 text-xs font-semibold uppercase tracking-wider cursor-pointer whitespace-nowrap"
-                  >
-                    <FastForward className="w-3.5 h-3.5" aria-hidden="true" />
-                    Sim to My Match
-                  </button>
+                  {tournament.format !== 'test' && (
+                    <button
+                      type="button"
+                      onClick={() => onSimToUserOrNext(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#102046] border border-cyan-400/50 text-cyan-200 hover:border-cyan-300 text-xs font-semibold uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                    >
+                      <FastForward className="w-3.5 h-3.5" aria-hidden="true" />
+                      Sim to My Match
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => onSimToUserOrNext(false)}
                     className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#102046] border border-amber-400/50 text-amber-300 hover:border-amber-300 text-xs font-semibold uppercase tracking-wider cursor-pointer whitespace-nowrap"
                   >
                     <FastForward className="w-3.5 h-3.5" aria-hidden="true" />
-                    Sim Stage
+                    {tournament.format === 'test' ? 'Sim Series' : 'Sim Stage'}
                   </button>
                 </>
               )}
@@ -420,17 +478,37 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
             </div>
           </div>
 
-          {/* Champion Banner */}
+          {/* Champion Banner / Trophy Ceremony Trigger */}
           {tournament.stage === 'complete' && tournament.championTeamId && (
-            <div className="px-5 py-3.5 rounded-xl bg-amber-400/15 border border-amber-400 flex items-center justify-center gap-3 text-center">
-              <Award className="w-7 h-7 text-amber-400 shrink-0" aria-hidden="true" />
-              <div className="font-display text-2xl sm:text-3xl font-bold tracking-wider text-amber-300">
-                {tournament.championTeamId === 'draw'
-                  ? `${tournament.title.toUpperCase()} DRAWN!`
-                  : `${getTeamById(tournament.championTeamId).name.toUpperCase()} LIFT THE TROPHY!`}
+            <div className="px-4 py-3 rounded-xl bg-amber-400/15 border border-amber-400 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Award className="w-6 h-6 text-amber-400 shrink-0" aria-hidden="true" />
+                <div className="font-display text-xl sm:text-2xl font-bold tracking-wider text-amber-300">
+                  {tournament.championTeamId === 'draw'
+                    ? `${tournament.title.toUpperCase()} DRAWN!`
+                    : `${getTeamById(tournament.championTeamId).name.toUpperCase()} LIFT THE TROPHY!`}
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowTrophyModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold uppercase tracking-wider cursor-pointer whitespace-nowrap"
+              >
+                <Trophy className="w-3.5 h-3.5" aria-hidden="true" />
+                Trophy Ceremony
+              </button>
             </div>
           )}
+
+          {/* Inline Trophy & Player of the Tournament Showcase (shown on Fixtures tab when complete) */}
+          {tournament.stage === 'complete' &&
+            tournament.championTeamId &&
+            hubTab === 'fixtures' && (
+              <TrophyCelebration
+                tournament={tournament}
+                playerOfTournament={playerOfTournament}
+              />
+            )}
 
           {/* Mobile Tabs */}
           <div className="flex sm:hidden items-center gap-2">
@@ -525,7 +603,9 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
                 }`}
               >
                 <h3 className="font-display text-xl font-bold tracking-wider text-amber-400 mb-3">
-                  {tournament.format === 'test' ? '5-TEST SCHEDULE' : 'FIXTURES & KNOCKOUTS'}
+                  {tournament.format === 'test'
+                    ? `${tournament.testMatchCount ?? tournament.fixtures.length}-TEST SCHEDULE`
+                    : 'FIXTURES & KNOCKOUTS'}
                 </h3>
 
                 <div className="overflow-y-auto space-y-2.5 pr-1">
@@ -574,7 +654,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
                               <span>{fix.label}</span>
                               {fix.venue && <span className="text-slate-400">· {fix.venue}</span>}
                             </div>
-                            <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                            <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-white">
                               <TeamBadge team={home} size="sm" />
                               <span>{home.code}</span>
                               {fix.homeScoreText && (
@@ -593,6 +673,14 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
                             </div>
                             {fix.completed && (
                               <div className="text-xs text-emerald-300">{fix.summary}</div>
+                            )}
+                            {fix.completed && fix.potm && (
+                              <div className="inline-flex items-center gap-1.5 text-[11px] font-mono-num text-amber-300/95">
+                                <Award className="w-3 h-3 text-amber-400 shrink-0" aria-hidden="true" />
+                                <span>
+                                  POTM: <strong className="text-white">{fix.potm.playerName}</strong> ({fix.potm.summary})
+                                </span>
+                              </div>
                             )}
                           </div>
 
@@ -622,6 +710,15 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
                 </div>
               </section>
             </div>
+          )}
+
+          {showTrophyModal && tournament.stage === 'complete' && tournament.championTeamId && (
+            <TrophyCelebration
+              tournament={tournament}
+              playerOfTournament={playerOfTournament}
+              asModal
+              onClose={() => setShowTrophyModal(false)}
+            />
           )}
         </main>
       )}
@@ -729,7 +826,7 @@ const PlayerStatsView: React.FC<{
   return (
     <section
       data-testid="player-stats-panel"
-      className="flex-1 min-h-0 rounded-xl bg-[#0b1530]/95 border border-cyan-500/35 p-4 flex flex-col gap-3"
+      className="flex-none lg:flex-1 lg:min-h-0 rounded-xl bg-[#0b1530]/95 border border-cyan-500/35 p-4 flex flex-col gap-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/60 pb-2.5">
         <div>
@@ -810,23 +907,23 @@ const PlayerStatsView: React.FC<{
           No match statistics recorded yet. Play or simulate a fixture to populate batting averages, strike rates, and bowling wickets.
         </div>
       ) : (
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="flex-none lg:flex-1 lg:min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Batting Leaderboard */}
-          <div className="rounded-lg bg-[#070f24] border border-cyan-500/25 p-3 flex flex-col min-h-0">
+          <div className="rounded-lg bg-[#070f24] border border-cyan-500/25 p-3 flex flex-col min-h-[240px] max-h-[340px] lg:min-h-0 lg:max-h-none">
             <div className="text-xs font-bold uppercase tracking-wider text-amber-300 mb-2">
               Batting Leaders (Avg & Strike Rate)
             </div>
-            <div className="overflow-y-auto flex-1 pr-1">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="overflow-auto flex-1 pr-1">
+              <table className="w-full text-left border-collapse text-[11px] sm:text-xs">
                 <thead>
                   <tr className="border-b border-slate-700/70 text-[10px] text-slate-400 font-mono-num uppercase">
                     <th className="py-1.5 pr-1">#</th>
-                    <th className="py-1.5 pr-2">Batter</th>
-                    <th className="py-1.5 px-1 text-right">Inn</th>
-                    <th className="py-1.5 px-1 text-right">Runs</th>
-                    <th className="py-1.5 px-1 text-right">Avg</th>
-                    <th className="py-1.5 px-1 text-right">SR</th>
-                    <th className="py-1.5 pl-1 text-right">HS</th>
+                    <th className="py-1.5 pr-1.5">Batter</th>
+                    <th className="py-1.5 px-1 text-right whitespace-nowrap">Inn</th>
+                    <th className="py-1.5 px-1 text-right whitespace-nowrap">Runs</th>
+                    <th className="py-1.5 px-1 text-right whitespace-nowrap">Avg</th>
+                    <th className="py-1.5 px-1 text-right whitespace-nowrap">SR</th>
+                    <th className="py-1.5 pl-1 text-right whitespace-nowrap">HS</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -841,10 +938,10 @@ const PlayerStatsView: React.FC<{
                         }`}
                       >
                         <td className="py-1.5 pr-1 text-slate-400">{idx + 1}</td>
-                        <td className="py-1.5 pr-2 font-sans">
-                          <div className="flex items-center gap-1.5 min-w-0">
+                        <td className="py-1.5 pr-1.5 font-sans">
+                          <div className="flex items-center gap-1 min-w-0 max-w-[112px] sm:max-w-none">
                             <span
-                              className="text-[10px] font-mono-num px-1 rounded bg-slate-800 text-cyan-300 shrink-0"
+                              className="text-[9px] sm:text-[10px] font-mono-num px-1 rounded bg-slate-800 text-cyan-300 shrink-0"
                             >
                               {team.code}
                             </span>
@@ -872,21 +969,21 @@ const PlayerStatsView: React.FC<{
           </div>
 
           {/* Bowling Leaderboard */}
-          <div className="rounded-lg bg-[#070f24] border border-cyan-500/25 p-3 flex flex-col min-h-0">
+          <div className="rounded-lg bg-[#070f24] border border-cyan-500/25 p-3 flex flex-col min-h-[240px] max-h-[340px] lg:min-h-0 lg:max-h-none">
             <div className="text-xs font-bold uppercase tracking-wider text-purple-300 mb-2">
               Bowling Leaders (Total Wickets & Economy)
             </div>
-            <div className="overflow-y-auto flex-1 pr-1">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="overflow-auto flex-1 pr-1">
+              <table className="w-full text-left border-collapse text-[11px] sm:text-xs">
                 <thead>
                   <tr className="border-b border-slate-700/70 text-[10px] text-slate-400 font-mono-num uppercase">
                     <th className="py-1.5 pr-1">#</th>
-                    <th className="py-1.5 pr-2">Bowler</th>
-                    <th className="py-1.5 px-1 text-right">Mat</th>
-                    <th className="py-1.5 px-1 text-right">Ov</th>
-                    <th className="py-1.5 px-1 text-right">Wkts</th>
-                    <th className="py-1.5 px-1 text-right">Runs</th>
-                    <th className="py-1.5 pl-1 text-right">Econ</th>
+                    <th className="py-1.5 pr-1.5">Bowler</th>
+                    <th className="py-1.5 px-1 text-right whitespace-nowrap">Mat</th>
+                    <th className="py-1.5 px-1 text-right whitespace-nowrap">Ov</th>
+                    <th className="py-1.5 px-1 text-right whitespace-nowrap">Wkts</th>
+                    <th className="py-1.5 px-1 text-right whitespace-nowrap">Runs</th>
+                    <th className="py-1.5 pl-1 text-right whitespace-nowrap">Econ</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -901,10 +998,10 @@ const PlayerStatsView: React.FC<{
                         }`}
                       >
                         <td className="py-1.5 pr-1 text-slate-400">{idx + 1}</td>
-                        <td className="py-1.5 pr-2 font-sans">
-                          <div className="flex items-center gap-1.5 min-w-0">
+                        <td className="py-1.5 pr-1.5 font-sans">
+                          <div className="flex items-center gap-1 min-w-0 max-w-[112px] sm:max-w-none">
                             <span
-                              className="text-[10px] font-mono-num px-1 rounded bg-slate-800 text-cyan-300 shrink-0"
+                              className="text-[9px] sm:text-[10px] font-mono-num px-1 rounded bg-slate-800 text-cyan-300 shrink-0"
                             >
                               {team.code}
                             </span>

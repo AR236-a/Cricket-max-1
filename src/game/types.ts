@@ -56,6 +56,43 @@ export type WicketKind = 'Bowled' | 'Caught' | 'LBW' | 'Stumped' | 'Hit Wicket';
 
 export type BattingHand = 'right' | 'left';
 export type BowlingStyle = 'pace' | 'spin';
+export type BowlingSide = 'over' | 'round';
+
+export type MilestoneKind = '50' | '100' | '150' | '200' | '5fer';
+
+export interface MilestoneCelebration {
+  kind: MilestoneKind;
+  playerName: string;
+  teamId: string;
+  title: string;
+  subtitle: string;
+  runs?: number;
+  balls?: number;
+  fours?: number;
+  sixes?: number;
+  wickets?: number;
+  runsConceded?: number;
+  oversText?: string;
+}
+
+export interface PlayerOfMatchAward {
+  playerName: string;
+  teamId: string;
+  points: number;
+  summary: string;
+}
+
+export interface PlayerOfTournamentAward {
+  playerName: string;
+  teamId: string;
+  matches: number;
+  runs: number;
+  battingAverage: string;
+  strikeRate: string;
+  wickets: number;
+  economy: string;
+  points: number;
+}
 
 export interface PlayerProfile {
   name: string;
@@ -184,8 +221,10 @@ export interface MatchState {
   ballsToday: number;
   runsToday: number;
   wicketsToday: number;
+  bowlingSide?: BowlingSide;
   pendingOverPopup: OverCompletedSummary | null;
   pendingDayPopup: TestDaySummary | null;
+  pendingMilestonePopup?: MilestoneCelebration | null;
   tossCaller: 'home' | 'away';
   tossWinner: 'home' | 'away' | null;
   tossCoinResult: 'heads' | 'tails' | null;
@@ -247,6 +286,7 @@ export interface TournamentFixture {
   summary: string;
   homeScoreText?: string;
   awayScoreText?: string;
+  potm?: PlayerOfMatchAward;
 }
 
 export interface TournamentPlayerStat {
@@ -273,6 +313,7 @@ export interface TournamentState {
   format: MatchFormat;
   pitchCondition: PitchCondition;
   oversPerInningsOrDay: number; // 20 for T20/IPL, 50 for ODI, 30/60/90 for Test Series
+  testMatchCount?: 3 | 5;
   userTeamId: string;
   difficulty: Difficulty;
   stage: 'league' | 'knockouts' | 'series' | 'complete';

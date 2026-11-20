@@ -130,6 +130,7 @@ export function buildDeliveryCommentary(params: {
   isWicket: boolean;
   wicketKind?: WicketKind;
   pitchCondition?: PitchCondition;
+  bowlingSide?: 'over' | 'round';
 }): string {
   const {
     bowlerName,
@@ -141,9 +142,11 @@ export function buildDeliveryCommentary(params: {
     isWicket,
     wicketKind,
     pitchCondition,
+    bowlingSide,
   } = params;
 
-  const deliveryDesc = DELIVERY_FLAVOR[deliveryType][deliveryLength];
+  const sideTag = bowlingSide === 'round' ? ' from around the wicket' : '';
+  const deliveryDesc = `${DELIVERY_FLAVOR[deliveryType][deliveryLength]}${sideTag}`;
   const pitchTag =
     pitchCondition === 'green'
       ? ' off the green seamers deck'
