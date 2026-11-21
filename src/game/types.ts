@@ -110,6 +110,14 @@ export interface Team {
   accentColor: string;
   batters: string[];
   bowlers: string[];
+  odiBatters?: string[];
+  odiBowlers?: string[];
+}
+
+export interface TeamFormatContext {
+  format?: MatchFormat;
+  totalOvers?: number;
+  tournamentType?: TournamentType;
 }
 
 export interface BatterStats {

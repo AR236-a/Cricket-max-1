@@ -15,10 +15,12 @@ import {
   formatOvers,
   isSpinDelivery,
   resolveDelivery,
+  selectNextBatter,
+  selectNextBowler,
   startSecondInnings,
   startTestNewDay,
 } from './cricketEngine';
-import { getBattingHand, getBowlingStyle, getTeamsByLeague, TEAMS } from './teams';
+import { getBattingHand, getBowlingStyle, getTeamById, getTeamsByLeague, TEAMS } from './teams';
 import { DeliveryLength, DeliveryType, ShotType } from './types';
 
 test('teams include 12 international and 10 IPL teams with 11 unique players each', () => {
@@ -345,7 +347,7 @@ test('pitch conditions measurably alter wicket/boundary probabilities and bowler
   assert.notEqual(match.innings1.bowlerName, firstBowler);
 });
 
-test('2025 rosters expose accurate batter handedness and bowler pace/spin style', () => {
+test('2026 rosters expose accurate batter handedness and bowler pace/spin style', () => {
   // Left-handed batters
   assert.equal(getBattingHand('Yashasvi Jaiswal'), 'left');
   assert.equal(getBattingHand('Travis Head'), 'left');
@@ -595,4 +597,141 @@ test('resolveDelivery supports around the wicket bowlingSide and mentions angle 
   });
   assert.match(res.commentary, /around the wicket/i);
 });
+
+test('India ODI and ODI World Cup squad includes Rohit Sharma & Virat Kohli and removes Yashasvi Jaiswal & Suryakumar Yadav', () => {
+  const odiTeam = getTeamById('ind', { format: 'limited', totalOvers: 50 });
+  assert.equal(odiTeam.batters.length, 11);
+  assert.equal(new Set(odiTeam.batters).size, 11);
+  assert.ok(odiTeam.batters.includes('Rohit Sharma'));
+  assert.ok(odiTeam.batters.includes('Virat Kohli'));
+  assert.equal(odiTeam.batters.includes('Yashasvi Jaiswal'), false);
+  assert.equal(odiTeam.batters.includes('Suryakumar Yadav'), false);
+
+  const odiWcTeam = getTeamById('ind', { tournamentType: 'odi_wc' });
+  assert.ok(odiWcTeam.batters.includes('Rohit Sharma'));
+  assert.ok(odiWcTeam.batters.includes('Virat Kohli'));
+  assert.equal(odiWcTeam.batters.includes('Yashasvi Jaiswal'), false);
+  assert.equal(odiWcTeam.batters.includes('Suryakumar Yadav'), false);
+
+  const odiMatch = createInitialMatchState({
+    mode: 'ai',
+    format: 'limited',
+    difficulty: 'medium',
+    homeTeamId: 'ind',
+    awayTeamId: 'aus',
+    totalOvers: 50,
+    homeBatsFirst: true,
+  });
+  const odiBatterNames = odiMatch.innings1.batters.map((b) => b.name);
+  assert.ok(odiBatterNames.includes('Rohit Sharma'));
+  assert.ok(odiBatterNames.includes('Virat Kohli'));
+  assert.equal(odiBatterNames.includes('Yashasvi Jaiswal'), false);
+  assert.equal(odiBatterNames.includes('Suryakumar Yadav'), false);
+
+  // T20 (20 overs) and Test retain Yashasvi Jaiswal & Suryakumar Yadav
+  const t20Match = createInitialMatchState({
+    mode: 'ai',
+    format: 'limited',
+    difficulty: 'medium',
+    homeTeamId: 'ind',
+    awayTeamId: 'aus',
+    totalOvers: 20,
+    homeBatsFirst: true,
+  });
+  const t20BatterNames = t20Match.innings1.batters.map((b) => b.name);
+  assert.ok(t20BatterNames.includes('Yashasvi Jaiswal'));
+  assert.ok(t20BatterNames.includes('Suryakumar Yadav'));
+});
+
+test('user can choose next batter after wicket down and choose bowler after every over', () => {
+  // 1. User batting: wicket triggers pendingBatterPopup & selectNextBatter inserts chosen batter
+  let batMatch = createInitialMatchState({
+    mode: 'ai',
+    format: 'limited',
+    difficulty: 'medium',
+    homeTeamId: 'ind',
+    awayTeamId: 'aus',
+    totalOvers: 50,
+    homeBatsFirst: true,
+  });
+
+  batMatch = applyDeliveryToMatch(batMatch, {
+    runs: 0,
+    isWicket: true,
+    wicketKind: 'Caught',
+    isBoundaryFour: false,
+    isBoundarySix: false,
+    outcomeLabel: 'OUT! CAUGHT',
+    ballSymbol: 'W',
+    commentary: 'Caught!',
+    hitAngleRad: 0,
+    hitDistanceFactor: 0.4,
+    shotUsed: 'drive',
+    deliveryUsed: 'fast',
+    lengthUsed: 'good',
+  }).nextState;
+
+  assert.ok(batMatch.pendingBatterPopup);
+  assert.equal(batMatch.pendingBatterPopup.replacingSlot, 'striker');
+  assert.equal(batMatch.pendingBatterPopup.dismissedBatterName, 'Rohit Sharma');
+
+  // Choose Hardik Pandya (index 5) instead of default #3 Virat Kohli (index 2)
+  batMatch = selectNextBatter(batMatch, 5);
+  assert.equal(batMatch.pendingBatterPopup, null);
+  assert.equal(batMatch.innings1.batters[batMatch.innings1.strikerIndex].name, 'Hardik Pandya');
+
+  // 2. User bowling: AI batting does not open batter popup, and user chooses bowler at 0.0 and after over
+  let bowlMatch = createInitialMatchState({
+    mode: 'ai',
+    format: 'limited',
+    difficulty: 'medium',
+    homeTeamId: 'ind',
+    awayTeamId: 'aus',
+    totalOvers: 5,
+    homeBatsFirst: false,
+  });
+
+  // Swap opening bowler at 0.0 to Varun Chakaravarthy (spinner -> syncs delivery type)
+  bowlMatch = selectNextBowler(bowlMatch, 'Varun Chakaravarthy');
+  assert.equal(bowlMatch.innings1.bowlerName, 'Varun Chakaravarthy');
+  assert.equal(bowlMatch.pendingDeliveryType, 'off_spin');
+
+  // Bowl 6 balls to complete Over 1 (include 1 wicket -> AI auto-assigns without pendingBatterPopup)
+  for (let b = 0; b < 6; b++) {
+    bowlMatch = applyDeliveryToMatch(bowlMatch, {
+      runs: b === 0 ? 0 : 1,
+      isWicket: b === 0,
+      wicketKind: b === 0 ? 'Bowled' : undefined,
+      isBoundaryFour: false,
+      isBoundarySix: false,
+      outcomeLabel: b === 0 ? 'OUT!' : '1 RUN',
+      ballSymbol: b === 0 ? 'W' : '1',
+      commentary: 'Delivery',
+      hitAngleRad: 0,
+      hitDistanceFactor: 0.4,
+      shotUsed: 'drive',
+      deliveryUsed: 'off_spin',
+      lengthUsed: 'good',
+    }).nextState;
+    assert.equal(bowlMatch.pendingBatterPopup, null);
+  }
+
+  assert.ok(bowlMatch.pendingOverPopup);
+  assert.equal(bowlMatch.pendingOverPopup.bowlerName, 'Varun Chakaravarthy');
+
+  // Cannot pick same bowler consecutively
+  const blockedSame = selectNextBowler(bowlMatch, 'Varun Chakaravarthy');
+  assert.notEqual(blockedSame.pendingOverPopup?.nextBowlerName, 'Varun Chakaravarthy');
+
+  // Pick Jasprit Bumrah for Over 2 -> pace delivery type synced
+  bowlMatch = selectNextBowler(bowlMatch, 'Jasprit Bumrah');
+  assert.equal(bowlMatch.pendingOverPopup?.nextBowlerName, 'Jasprit Bumrah');
+  assert.equal(bowlMatch.innings1.bowlerName, 'Jasprit Bumrah');
+  assert.equal(bowlMatch.pendingDeliveryType, 'fast');
+
+  bowlMatch = dismissOverPopup(bowlMatch);
+  assert.equal(bowlMatch.pendingOverPopup, null);
+  assert.equal(bowlMatch.innings1.bowlerName, 'Jasprit Bumrah');
+});
+
 

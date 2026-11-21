@@ -736,6 +736,8 @@ export default function App() {
       tossWinner: match.tossWinner,
       tossCoinResult: match.tossCoinResult,
     });
+    const openingStyle = getBowlingStyle(getActiveInnings(restarted).bowlerName);
+    setSelectedDeliveryType(openingStyle === 'spin' ? 'off_spin' : 'fast');
     setMatch(restarted);
     setScreen('playing');
   }, [match, clearTimers]);
@@ -969,17 +971,19 @@ export default function App() {
           }
           return;
         }
+        if (
+          match.pendingBatterPopup ||
+          match.pendingOverPopup ||
+          match.pendingDayPopup
+        ) {
+          return;
+        }
         if (e.key === 'Escape' || e.key.toLowerCase() === 'p') {
           e.preventDefault();
           handleTogglePause();
           return;
         }
-        if (
-          match.isPaused ||
-          match.pendingBatterPopup ||
-          match.pendingOverPopup ||
-          match.pendingDayPopup
-        ) {
+        if (match.isPaused) {
           return;
         }
 
@@ -1012,8 +1016,9 @@ export default function App() {
   ]);
 
   const activeInnings = match ? getActiveInnings(match) : null;
-  const battingTeam = getTeamById(activeInnings?.battingTeamId ?? homeTeamId ?? 'ind');
-  const bowlingTeam = getTeamById(activeInnings?.bowlingTeamId ?? awayTeamId ?? 'aus');
+  const teamCtx = { format: match?.format ?? format, totalOvers: match?.totalOvers ?? totalOvers };
+  const battingTeam = getTeamById(activeInnings?.battingTeamId ?? homeTeamId ?? 'ind', teamCtx);
+  const bowlingTeam = getTeamById(activeInnings?.bowlingTeamId ?? awayTeamId ?? 'aus', teamCtx);
   const strikerHand = activeInnings
     ? getBattingHand(activeInnings.batters[activeInnings.strikerIndex]?.name ?? '')
     : 'right';

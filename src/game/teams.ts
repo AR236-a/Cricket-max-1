@@ -1,4 +1,4 @@
-import { BattingHand, BowlingStyle, LeagueId, PlayerProfile, Team } from './types';
+import { BattingHand, BowlingStyle, LeagueId, PlayerProfile, Team, TeamFormatContext } from './types';
 
 export const TEAMS: Team[] = [
   // International (2026 Squads - 12 Teams)
@@ -14,6 +14,19 @@ export const TEAMS: Team[] = [
       'Shubman Gill',
       'Yashasvi Jaiswal',
       'Suryakumar Yadav',
+      'Tilak Varma',
+      'Rishabh Pant',
+      'Hardik Pandya',
+      'Axar Patel',
+      'Ravindra Jadeja',
+      'Varun Chakaravarthy',
+      'Jasprit Bumrah',
+      'Arshdeep Singh',
+    ],
+    odiBatters: [
+      'Rohit Sharma',
+      'Shubman Gill',
+      'Virat Kohli',
       'Tilak Varma',
       'Rishabh Pant',
       'Hardik Pandya',
@@ -833,10 +846,28 @@ export function getPlayerProfile(playerName: string): PlayerProfile {
   };
 }
 
-export function getTeamById(id: string): Team {
-  return TEAMS.find((t) => t.id === id) ?? TEAMS[0];
+export function isOdiMatchContext(context?: TeamFormatContext): boolean {
+  if (!context) return false;
+  if (context.tournamentType === 'odi_wc') return true;
+  return (context.format ?? 'limited') === 'limited' && context.totalOvers === 50;
 }
 
-export function getTeamsByLeague(league: LeagueId): Team[] {
-  return TEAMS.filter((t) => t.league === league);
+export function resolveTeamForContext(team: Team, context?: TeamFormatContext): Team {
+  if (isOdiMatchContext(context) && (team.odiBatters || team.odiBowlers)) {
+    return {
+      ...team,
+      batters: team.odiBatters ?? team.batters,
+      bowlers: team.odiBowlers ?? team.bowlers,
+    };
+  }
+  return team;
+}
+
+export function getTeamById(id: string, context?: TeamFormatContext): Team {
+  const base = TEAMS.find((t) => t.id === id) ?? TEAMS[0];
+  return resolveTeamForContext(base, context);
+}
+
+export function getTeamsByLeague(league: LeagueId, context?: TeamFormatContext): Team[] {
+  return TEAMS.filter((t) => t.league === league).map((t) => resolveTeamForContext(t, context));
 }

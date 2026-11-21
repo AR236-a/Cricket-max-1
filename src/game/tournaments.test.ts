@@ -143,6 +143,13 @@ test('ODI World Cup creates 10-team league (45 matches) and completes through Se
   assert.ok(odi.championTeamId);
   assert.equal(odi.fixtures.some((f) => f.round === 'sf1'), true);
   assert.equal(odi.fixtures.some((f) => f.round === 'final'), true);
+
+  // Verify India's ODI World Cup stats track Rohit Sharma / Virat Kohli and never Jaiswal / Suryakumar
+  const indiaStats = Object.values(odi.playerStats).filter((s) => s.teamId === 'ind');
+  const indiaNames = indiaStats.map((s) => s.playerName);
+  assert.ok(indiaNames.includes('Rohit Sharma') || indiaNames.includes('Virat Kohli'));
+  assert.equal(indiaNames.includes('Yashasvi Jaiswal'), false);
+  assert.equal(indiaNames.includes('Suryakumar Yadav'), false);
 });
 
 test('IPL Tournament runs 10-team league and 4-match Playoff Bracket (Q1, Eliminator, Q2, Final)', () => {

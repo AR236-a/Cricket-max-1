@@ -85,6 +85,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
 }) => {
   const [league, setLeague] = useState<LeagueId>('international');
   const [showSquads, setShowSquads] = useState(false);
+  const [rosterFormat, setRosterFormat] = useState<'t20' | 'odi'>('t20');
 
   if (
     screen === 'playing' ||
@@ -99,7 +100,12 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
 
   const homeTeam = homeTeamId ? getTeamById(homeTeamId) : null;
   const awayTeam = awayTeamId ? getTeamById(awayTeamId) : null;
-  const leagueTeams = getTeamsByLeague(league);
+  const leagueTeams = getTeamsByLeague(
+    league,
+    league === 'international' && format === 'limited' && rosterFormat === 'odi'
+      ? { format: 'limited', totalOvers: 50 }
+      : undefined
+  );
 
   return (
     <div className="fixed inset-0 z-20 flex flex-col items-center overflow-y-auto p-4 sm:p-6 pt-16 sm:pt-6">
@@ -403,38 +409,70 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
           </div>
 
           {showSquads ? (
-            <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto pr-1 max-h-[46vh]">
-              {leagueTeams.map((team) => (
-                <div
-                  key={team.id}
-                  className="p-3.5 rounded-lg bg-[#0b1530]/95 border border-cyan-500/30 space-y-2"
-                >
-                  <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-700/60">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <TeamBadge team={team} size="sm" />
-                      <span className="text-sm font-semibold text-white truncate">{team.name}</span>
-                    </div>
+            <div className="w-full space-y-3 overflow-y-auto pr-1 max-h-[46vh]">
+              {league === 'international' && format === 'limited' && (
+                <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#081024] border border-cyan-500/30 text-xs">
+                  <span className="text-slate-300 font-medium">International Format Squad:</span>
+                  <div className="inline-flex items-center p-0.5 rounded-md bg-[#0b1530] border border-cyan-500/35">
                     <button
                       type="button"
-                      onClick={() => {
-                        onSelectTeam(team.id);
-                        setShowSquads(false);
-                      }}
-                      className="px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50 text-[10px] font-semibold text-cyan-200 hover:bg-cyan-400 hover:text-slate-950 cursor-pointer shrink-0"
+                      onClick={() => setRosterFormat('t20')}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold cursor-pointer ${
+                        rosterFormat === 't20'
+                          ? 'bg-cyan-400 text-slate-950'
+                          : 'text-slate-300 hover:text-white'
+                      }`}
                     >
-                      {homeTeamId === team.id || awayTeamId === team.id ? 'Selected' : 'Pick'}
+                      T20 / Short
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="roster-odi-toggle"
+                      onClick={() => setRosterFormat('odi')}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold cursor-pointer ${
+                        rosterFormat === 'odi'
+                          ? 'bg-amber-400 text-slate-950'
+                          : 'text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      ODI (50 Ov)
                     </button>
                   </div>
-                  <ol className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-300">
-                    {team.batters.map((player, idx) => (
-                      <li key={player} className="truncate font-mono-num">
-                        <span className="text-slate-500 mr-1">{idx + 1}.</span>
-                        {player}
-                      </li>
-                    ))}
-                  </ol>
                 </div>
-              ))}
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {leagueTeams.map((team) => (
+                  <div
+                    key={team.id}
+                    className="p-3.5 rounded-lg bg-[#0b1530]/95 border border-cyan-500/30 space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-700/60">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <TeamBadge team={team} size="sm" />
+                        <span className="text-sm font-semibold text-white truncate">{team.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSelectTeam(team.id);
+                          setShowSquads(false);
+                        }}
+                        className="px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50 text-[10px] font-semibold text-cyan-200 hover:bg-cyan-400 hover:text-slate-950 cursor-pointer shrink-0"
+                      >
+                        {homeTeamId === team.id || awayTeamId === team.id ? 'Selected' : 'Pick'}
+                      </button>
+                    </div>
+                    <ol className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-300">
+                      {team.batters.map((player, idx) => (
+                        <li key={player} className="truncate font-mono-num">
+                          <span className="text-slate-500 mr-1">{idx + 1}.</span>
+                          {player}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : (
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2.5 overflow-y-auto pr-1 max-h-[46vh]">

@@ -20,6 +20,7 @@ import {
   OverProgressPoint,
   PitchCondition,
   ShotType,
+  TeamFormatContext,
   WicketKind,
 } from './types';
 
@@ -162,10 +163,11 @@ export const LENGTH_META: Record<DeliveryLength, { label: string }> = {
 
 export function createInningsState(
   battingTeamId: string,
-  bowlingTeamId: string
+  bowlingTeamId: string,
+  context?: TeamFormatContext
 ): InningsState {
-  const batTeam = getTeamById(battingTeamId);
-  const bowlTeam = getTeamById(bowlingTeamId);
+  const batTeam = getTeamById(battingTeamId, context);
+  const bowlTeam = getTeamById(bowlingTeamId, context);
 
   const batters: BatterStats[] = batTeam.batters.map((name) => ({
     name,
@@ -225,7 +227,10 @@ export function createInitialMatchState(params: {
   const battingId = params.homeBatsFirst ? params.homeTeamId : params.awayTeamId;
   const bowlingId = params.homeBatsFirst ? params.awayTeamId : params.homeTeamId;
 
-  const innings1 = createInningsState(battingId, bowlingId);
+  const innings1 = createInningsState(battingId, bowlingId, {
+    format,
+    totalOvers: effectiveOvers,
+  });
   const openingPair = `${innings1.batters[0]?.name ?? 'Opener'} & ${innings1.batters[1]?.name ?? 'Partner'}`;
   const pitchMeta = PITCH_META[pitchCondition];
   const formatTag =
@@ -888,7 +893,10 @@ export function applyDeliveryToMatch(
   resolution: DeliveryResolution
 ): { nextState: MatchState; enteredInningsBreak: boolean; matchFinished: boolean } {
   const active = getActiveInnings(state);
-  const bowlTeam = getTeamById(active.bowlingTeamId);
+  const bowlTeam = getTeamById(active.bowlingTeamId, {
+    format: state.format,
+    totalOvers: state.totalOvers,
+  });
 
   const nextBatters = active.batters.map((b) => ({ ...b }));
   const striker = nextBatters[active.strikerIndex];
@@ -1340,7 +1348,10 @@ export function selectNextBatter(state: MatchState, batterIndex: number): MatchS
 
 export function selectNextBowler(state: MatchState, bowlerName: string): MatchState {
   const active = getActiveInnings(state);
-  const bowlTeam = getTeamById(active.bowlingTeamId);
+  const bowlTeam = getTeamById(active.bowlingTeamId, {
+    format: state.format,
+    totalOvers: state.totalOvers,
+  });
   if (!bowlTeam.bowlers.includes(bowlerName)) return state;
 
   // Enforce cricket rule: cannot bowl consecutive overs if team has > 1 bowler
@@ -1491,7 +1502,8 @@ export function startNextInnings(state: MatchState): MatchState {
     const target = state.innings1.runs + 1;
     const innings2 = createInningsState(
       state.innings1.bowlingTeamId,
-      state.innings1.battingTeamId
+      state.innings1.battingTeamId,
+      { format: state.format, totalOvers: state.totalOvers }
     );
     const playerBatting2nd =
       state.mode === 'ai' && innings2.battingTeamId === state.homeTeamId;
@@ -1535,7 +1547,10 @@ export function startNextInnings(state: MatchState): MatchState {
   // Standard alternating order (1: A, 2: B, 3: A, 4: B)
   const nextBatId = prevInn.bowlingTeamId;
   const nextBowlId = prevInn.battingTeamId;
-  const newInn = createInningsState(nextBatId, nextBowlId);
+  const newInn = createInningsState(nextBatId, nextBowlId, {
+    format: state.format,
+    totalOvers: state.totalOvers,
+  });
   const batCode = getTeamById(nextBatId).code;
   const openingPair = `${newInn.batters[0]?.name ?? 'Opener'} & ${newInn.batters[1]?.name ?? 'Partner'}`;
 

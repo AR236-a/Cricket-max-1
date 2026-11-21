@@ -142,8 +142,9 @@ export const GameHud: React.FC<GameHudProps> = ({
     return null;
   }
 
-  const batTeam = getTeamById(active.battingTeamId);
-  const bowlTeam = getTeamById(active.bowlingTeamId);
+  const teamCtx = { format: match.format, totalOvers: match.totalOvers };
+  const batTeam = getTeamById(active.battingTeamId, teamCtx);
+  const bowlTeam = getTeamById(active.bowlingTeamId, teamCtx);
   const striker = active.batters[active.strikerIndex];
   const nonStriker = active.batters[active.nonStrikerIndex];
   const strikerHand = striker ? getBattingHand(striker.name) : 'right';
@@ -1205,8 +1206,9 @@ export const GameHud: React.FC<GameHudProps> = ({
                         key={bName}
                         type="button"
                         disabled={bowledLast}
+                        data-selected={isSelected ? 'true' : 'false'}
                         onClick={() => onSelectNextBowler(bName)}
-                        className={`flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-md border text-xs transition-colors ${
+                        className={`flex items-center justify-between gap-1 px-2 py-2 rounded-md border text-left text-xs ${
                           bowledLast
                             ? 'bg-[#081129] border-slate-800 text-slate-500 opacity-55 cursor-not-allowed'
                             : isSelected
@@ -1214,8 +1216,8 @@ export const GameHud: React.FC<GameHudProps> = ({
                             : 'bg-[#0c1a3a] border-slate-700/70 text-slate-200 hover:border-cyan-400/70 cursor-pointer'
                         }`}
                       >
-                        <div className="min-w-0">
-                          <div className="font-semibold truncate">{bName}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-[11px] sm:text-xs truncate">{bName}</div>
                           <div className="text-[10px] font-mono-num text-slate-400">
                             {bowledLast
                               ? 'Bowled last over'

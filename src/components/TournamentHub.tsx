@@ -270,6 +270,34 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
                 );
               })}
             </div>
+            {(() => {
+              const previewTeam = getTeamById(selectedTeamId, {
+                format: activeCatalog.isTest ? 'test' : 'limited',
+                totalOvers: selectedType === 'odi_wc' ? 50 : activeCatalog.isTest ? oversPerDay : 20,
+                tournamentType: selectedType,
+              });
+              return (
+                <div
+                  data-testid="tournament-squad-preview"
+                  className="mt-2.5 p-2.5 rounded-lg bg-[#081024]/95 border border-cyan-500/25"
+                >
+                  <div className="flex items-center justify-between text-[11px] font-mono-num text-cyan-300 mb-1.5">
+                    <span>{previewTeam.name} Playing XI</span>
+                    <span className="text-amber-300">
+                      {selectedType === 'odi_wc' ? 'ODI Squad (50 Ov)' : '2026 Squad'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-0.5 text-[11px] text-slate-300 font-mono-num">
+                    {previewTeam.batters.map((player, idx) => (
+                      <div key={player} className="truncate">
+                        <span className="text-slate-500 mr-1">{idx + 1}.</span>
+                        {player}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Series Length & Overs per Day (for Test Series) */}
