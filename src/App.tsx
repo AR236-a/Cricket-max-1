@@ -11,6 +11,7 @@ import {
   chooseAiShot,
   createInitialMatchState,
   declareTestInnings,
+  dismissDlsPopup,
   dismissMilestonePopup,
   dismissOverPopup,
   getActiveInnings,
@@ -48,6 +49,7 @@ import {
   MatchFormat,
   MatchState,
   PitchCondition,
+  RainChance,
   ScreenId,
   ShotType,
   TournamentFixture,
@@ -70,6 +72,7 @@ function safeLoadActiveTournament(): TournamentState | null {
       ...parsed,
       id: parsed.id || `${parsed.type}-legacy`,
       pitchCondition: parsed.pitchCondition ?? 'hard',
+      rainChance: parsed.rainChance ?? 0,
       playerStats: parsed.playerStats ?? {},
     };
   } catch {
@@ -123,6 +126,13 @@ export default function App() {
   );
   const [pitchCondition, setPitchCondition] = useState<PitchCondition>(() =>
     shouldAutoResume && initialSavedSession ? initialSavedSession.match.pitchCondition : 'hard'
+  );
+  const [rainChance, setRainChance] = useState<RainChance>(() =>
+    autostart
+      ? 0
+      : shouldAutoResume && initialSavedSession
+      ? initialSavedSession.match.rainChance ?? 0
+      : 25
   );
   const [difficulty, setDifficulty] = useState<Difficulty>(() =>
     shouldAutoResume && initialSavedSession ? initialSavedSession.match.difficulty : 'medium'
@@ -305,6 +315,11 @@ export default function App() {
     setPitchCondition(chosenPitch);
   }, []);
 
+  const handleSelectRainChance = useCallback((chosenRain: RainChance) => {
+    soundFx.playClick();
+    setRainChance(chosenRain);
+  }, []);
+
   const handleSelectDifficulty = useCallback((chosenDiff: Difficulty) => {
     soundFx.playClick();
     setDifficulty(chosenDiff);
@@ -391,6 +406,7 @@ export default function App() {
         mode,
         format,
         pitchCondition,
+        rainChance,
         difficulty,
         homeTeamId,
         awayTeamId,
@@ -416,6 +432,7 @@ export default function App() {
       mode,
       format,
       pitchCondition,
+      rainChance,
       difficulty,
       totalOvers,
       oversPerDay,
@@ -468,7 +485,10 @@ export default function App() {
     setMatch((prev) => {
       if (!prev) return prev;
       const applied = applyDeliveryToMatch(prev, res);
-      if (applied.nextState.pendingMilestonePopup) {
+      const hasEndingPopup =
+        Boolean(applied.nextState.pendingMilestonePopup) ||
+        Boolean(applied.nextState.pendingDlsPopup);
+      if (hasEndingPopup) {
         if (applied.enteredInningsBreak) {
           setPendingScreenAfterMilestone('inningsBreak');
         } else if (applied.matchFinished) {
@@ -494,6 +514,7 @@ export default function App() {
         match.isPaused ||
         match.pendingMilestonePopup ||
         match.pendingBatterPopup ||
+        match.pendingDlsPopup ||
         match.pendingOverPopup ||
         match.pendingDayPopup ||
         screen !== 'playing'
@@ -515,7 +536,8 @@ export default function App() {
           match.difficulty,
           Math.random,
           match.pitchCondition,
-          bowlerStyle
+          bowlerStyle,
+          match.weatherCondition ?? 'clear'
         );
         deliveryType = aiDel.type;
         deliveryLength = aiDel.length;
@@ -531,6 +553,7 @@ export default function App() {
         bowlerName: active.bowlerName,
         format: match.format,
         pitchCondition: match.pitchCondition,
+        weatherCondition: match.weatherCondition ?? 'clear',
         bowlingSide: match.bowlingSide ?? 'over',
       });
 
@@ -547,6 +570,7 @@ export default function App() {
       match.isPaused ||
       match.pendingMilestonePopup ||
       match.pendingBatterPopup ||
+      match.pendingDlsPopup ||
       match.pendingOverPopup ||
       match.pendingDayPopup ||
       screen !== 'playing'
@@ -598,6 +622,7 @@ export default function App() {
         bowlerName: currentActive.bowlerName,
         format: match.format,
         pitchCondition: match.pitchCondition,
+        weatherCondition: match.weatherCondition ?? 'clear',
         bowlingSide: match.bowlingSide ?? 'over',
       });
       triggerDeliveryAnimation(effectiveDeliveryType, selectedDeliveryLength, resolution);
@@ -670,15 +695,33 @@ export default function App() {
 
   const handleDismissMilestonePopup = useCallback(() => {
     soundFx.playClick();
+    const blockedByDls = Boolean(match?.pendingDlsPopup);
     setMatch((prev) => (prev ? dismissMilestonePopup(prev) : prev));
-    if (pendingScreenAfterMilestone) {
-      const nextScr = pendingScreenAfterMilestone;
-      setPendingScreenAfterMilestone(null);
-      setScreen(nextScr);
-    } else if (match?.matchComplete) {
-      setScreen('result');
+    if (!blockedByDls) {
+      if (pendingScreenAfterMilestone) {
+        const nextScr = pendingScreenAfterMilestone;
+        setPendingScreenAfterMilestone(null);
+        setScreen(nextScr);
+      } else if (match?.matchComplete) {
+        setScreen('result');
+      }
     }
-  }, [pendingScreenAfterMilestone, match?.matchComplete]);
+  }, [pendingScreenAfterMilestone, match?.pendingDlsPopup, match?.matchComplete]);
+
+  const handleDismissDlsPopup = useCallback(() => {
+    soundFx.playClick();
+    const blockedByMilestone = Boolean(match?.pendingMilestonePopup);
+    setMatch((prev) => (prev ? dismissDlsPopup(prev) : prev));
+    if (!blockedByMilestone) {
+      if (pendingScreenAfterMilestone) {
+        const nextScr = pendingScreenAfterMilestone;
+        setPendingScreenAfterMilestone(null);
+        setScreen(nextScr);
+      } else if (match?.matchComplete) {
+        setScreen('result');
+      }
+    }
+  }, [pendingScreenAfterMilestone, match?.pendingMilestonePopup, match?.matchComplete]);
 
   const handleProceedToNewDay = useCallback(() => {
     soundFx.playClick();
@@ -698,6 +741,7 @@ export default function App() {
       match.isPaused ||
       match.pendingMilestonePopup ||
       match.pendingBatterPopup ||
+      match.pendingDlsPopup ||
       match.pendingOverPopup ||
       match.pendingDayPopup ||
       screen !== 'playing'
@@ -727,10 +771,11 @@ export default function App() {
       mode: match.mode,
       format: match.format,
       pitchCondition: match.pitchCondition,
+      rainChance: match.rainChance ?? rainChance,
       difficulty: match.difficulty,
       homeTeamId: match.homeTeamId,
       awayTeamId: match.awayTeamId,
-      totalOvers: match.totalOvers,
+      totalOvers: match.originalTotalOvers ?? match.totalOvers,
       oversPerDay: match.oversPerDay,
       homeBatsFirst: match.innings1.battingTeamId === match.homeTeamId,
       tossWinner: match.tossWinner,
@@ -740,7 +785,7 @@ export default function App() {
     setSelectedDeliveryType(openingStyle === 'spin' ? 'off_spin' : 'fast');
     setMatch(restarted);
     setScreen('playing');
-  }, [match, clearTimers]);
+  }, [match, rainChance, clearTimers]);
 
   const handleReturnToTournament = useCallback(() => {
     soundFx.playClick();
@@ -816,10 +861,11 @@ export default function App() {
     setMode(restoredMatch.mode);
     setFormat(restoredMatch.format);
     setPitchCondition(restoredMatch.pitchCondition);
+    setRainChance(restoredMatch.rainChance ?? 0);
     setDifficulty(restoredMatch.difficulty);
     setHomeTeamId(restoredMatch.homeTeamId);
     setAwayTeamId(restoredMatch.awayTeamId);
-    setTotalOvers(restoredMatch.totalOvers);
+    setTotalOvers(restoredMatch.originalTotalOvers ?? restoredMatch.totalOvers);
     setOversPerDay(restoredMatch.oversPerDay);
     setActiveFixtureId(restoredMatch.activeTournamentMatchId ?? null);
     setSelectedDeliveryType(restoredDelivery);
@@ -850,11 +896,13 @@ export default function App() {
       userTeamId: string;
       difficulty: Difficulty;
       pitchCondition: PitchCondition;
+      rainChance: RainChance;
       oversPerDay?: 30 | 60 | 90;
       testCount?: 3 | 5;
     }) => {
       soundFx.playClick();
       setPitchCondition(params.pitchCondition);
+      setRainChance(params.rainChance);
       if (savedSession?.match.activeTournamentMatchId) {
         clearSavedMatchSession();
         setSavedSession(null);
@@ -870,6 +918,12 @@ export default function App() {
     soundFx.playClick();
     setPitchCondition(nextPitch);
     setTournament((prev) => (prev ? { ...prev, pitchCondition: nextPitch } : prev));
+  }, []);
+
+  const handleChangeTournamentRainChance = useCallback((nextRain: RainChance) => {
+    soundFx.playClick();
+    setRainChance(nextRain);
+    setTournament((prev) => (prev ? { ...prev, rainChance: nextRain } : prev));
   }, []);
 
   const handleResetCareerStats = useCallback(() => {
@@ -905,6 +959,7 @@ export default function App() {
       setMode('ai');
       setFormat(tournament.format);
       setPitchCondition(tournament.pitchCondition ?? 'hard');
+      setRainChance(tournament.rainChance ?? 0);
       setDifficulty(tournament.difficulty);
       setHomeTeamId(resolvedHome);
       setAwayTeamId(resolvedAway);
@@ -971,8 +1026,17 @@ export default function App() {
           }
           return;
         }
+        if (match.pendingBatterPopup) {
+          return;
+        }
+        if (match.pendingDlsPopup) {
+          if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+            e.preventDefault();
+            handleDismissDlsPopup();
+          }
+          return;
+        }
         if (
-          match.pendingBatterPopup ||
           match.pendingOverPopup ||
           match.pendingDayPopup
         ) {
@@ -1011,6 +1075,7 @@ export default function App() {
     handleToggleMute,
     handleTogglePause,
     handleDismissMilestonePopup,
+    handleDismissDlsPopup,
     handleSelectShot,
     handleBowl,
   ]);
@@ -1031,11 +1096,14 @@ export default function App() {
           match?.isPaused ||
             match?.pendingMilestonePopup ||
             match?.pendingBatterPopup ||
+            match?.pendingDlsPopup ||
             match?.pendingOverPopup ||
             match?.pendingDayPopup
         )}
         format={match?.format ?? format}
         pitchCondition={match?.pitchCondition ?? pitchCondition}
+        weatherCondition={match?.weatherCondition ?? 'clear'}
+        isRainDelay={Boolean(match?.pendingDlsPopup)}
         strikerHand={strikerHand}
         bowlingSide={match?.bowlingSide ?? 'over'}
         battingTeam={battingTeam}
@@ -1049,6 +1117,7 @@ export default function App() {
         mode={mode}
         format={format}
         pitchCondition={pitchCondition}
+        rainChance={rainChance}
         difficulty={difficulty}
         homeTeamId={homeTeamId}
         awayTeamId={awayTeamId}
@@ -1064,6 +1133,7 @@ export default function App() {
         onSelectMode={handleSelectMode}
         onSelectFormat={handleSelectFormat}
         onSelectPitch={handleSelectPitch}
+        onSelectRainChance={handleSelectRainChance}
         onSelectDifficulty={handleSelectDifficulty}
         onSelectTeam={handleSelectTeam}
         onClearTeamSlot={handleClearTeamSlot}
@@ -1079,10 +1149,12 @@ export default function App() {
         screen={screen}
         tournament={tournament}
         defaultPitch={pitchCondition}
+        defaultRainChance={rainChance}
         careerPlayerStats={careerPlayerStats}
         onNavigate={handleNavigate}
         onStartTournament={handleStartTournament}
         onChangeTournamentPitch={handleChangeTournamentPitch}
+        onChangeTournamentRainChance={handleChangeTournamentRainChance}
         onResetCareerStats={handleResetCareerStats}
         onPlayFixture={handlePlayFixture}
         onSimFixture={handleSimFixture}
@@ -1114,6 +1186,7 @@ export default function App() {
         onSelectNextBowler={handleSelectNextBowler}
         onDismissOverPopup={handleDismissOverPopup}
         onDismissMilestonePopup={handleDismissMilestonePopup}
+        onDismissDlsPopup={handleDismissDlsPopup}
         onProceedToNewDay={handleProceedToNewDay}
         onContinueNewDay={handleContinueNewDay}
         onToggleMute={handleToggleMute}

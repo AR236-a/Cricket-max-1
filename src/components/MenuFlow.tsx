@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PITCH_META } from '../game/cricketEngine';
+import { PITCH_META, RAIN_CHANCE_OPTIONS } from '../game/cricketEngine';
 import { getTeamById, getTeamsByLeague } from '../game/teams';
 import {
   Difficulty,
@@ -7,6 +7,7 @@ import {
   LeagueId,
   MatchFormat,
   PitchCondition,
+  RainChance,
   ScreenId,
 } from '../game/types';
 import { TeamBadge } from './TeamBadge';
@@ -15,6 +16,7 @@ import {
   ArrowLeft,
   Bot,
   ClipboardList,
+  CloudRain,
   Coins,
   Play,
   RotateCcw,
@@ -30,6 +32,7 @@ interface MenuFlowProps {
   mode: GameMode;
   format: MatchFormat;
   pitchCondition: PitchCondition;
+  rainChance: RainChance;
   difficulty: Difficulty;
   homeTeamId: string | null;
   awayTeamId: string | null;
@@ -45,6 +48,7 @@ interface MenuFlowProps {
   onSelectMode: (mode: GameMode) => void;
   onSelectFormat: (format: MatchFormat) => void;
   onSelectPitch: (pitch: PitchCondition) => void;
+  onSelectRainChance: (rainChance: RainChance) => void;
   onSelectDifficulty: (diff: Difficulty) => void;
   onSelectTeam: (teamId: string) => void;
   onClearTeamSlot: (slot: 'home' | 'away') => void;
@@ -61,6 +65,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
   mode,
   format,
   pitchCondition,
+  rainChance,
   homeTeamId,
   awayTeamId,
   tossFlipping,
@@ -73,6 +78,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
   onSelectMode,
   onSelectFormat,
   onSelectPitch,
+  onSelectRainChance,
   onSelectDifficulty,
   onSelectTeam,
   onClearTeamSlot,
@@ -538,11 +544,11 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
           </p>
 
           {/* Pitch Condition Selector */}
-          <div className="w-full max-w-xl mb-6 land:mb-3">
-            <div className="text-[11px] font-semibold tracking-[0.2em] text-slate-300 uppercase mb-2 land:mb-1.5 text-center">
+          <div className="w-full max-w-xl mb-5 land:mb-2">
+            <div className="text-[11px] font-semibold tracking-[0.2em] text-slate-300 uppercase mb-2 land:mb-1 text-center">
               Pitch Condition
             </div>
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-3 gap-2.5 land:gap-2">
               {(['hard', 'green', 'dry'] as PitchCondition[]).map((pitch) => {
                 const meta = PITCH_META[pitch];
                 const selected = pitchCondition === pitch;
@@ -551,7 +557,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
                     key={pitch}
                     type="button"
                     onClick={() => onSelectPitch(pitch)}
-                    className={`flex flex-col items-center text-center px-3 py-2.5 land:py-1.5 rounded-xl border transition-colors cursor-pointer ${
+                    className={`flex flex-col items-center text-center px-3 py-2.5 land:py-1 rounded-xl border transition-colors cursor-pointer ${
                       selected
                         ? pitch === 'green'
                           ? 'bg-emerald-950/70 border-emerald-400 text-white'
@@ -571,8 +577,46 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
                 );
               })}
             </div>
-            <p className="mt-2 land:mt-1 text-[11px] text-slate-300 text-center">
+            <p className="mt-1.5 land:mt-1 text-[11px] land:text-[10px] text-slate-300 text-center">
               {PITCH_META[pitchCondition].description}
+            </p>
+          </div>
+
+          {/* Rain Probability & DLS Selector */}
+          <div className="w-full max-w-xl mb-5 land:mb-2.5">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] font-semibold tracking-[0.2em] text-slate-300 uppercase mb-2 land:mb-1 text-center">
+              <CloudRain className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />
+              <span>Rain Probability {format === 'limited' ? '& DLS' : '& Weather'}</span>
+            </div>
+            <div className="grid grid-cols-5 gap-2 land:gap-1.5">
+              {RAIN_CHANCE_OPTIONS.map((pct) => {
+                const selected = rainChance === pct;
+                return (
+                  <button
+                    key={pct}
+                    type="button"
+                    data-testid={`rain-chance-${pct}`}
+                    aria-pressed={selected}
+                    onClick={() => onSelectRainChance(pct)}
+                    className={`py-2 land:py-1 px-2 rounded-lg border font-mono-num text-xs sm:text-sm land:text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                      selected
+                        ? 'bg-cyan-400 text-slate-950 border-cyan-300'
+                        : 'bg-[#0b1530]/95 border-cyan-500/35 text-cyan-200 hover:border-cyan-300'
+                    }`}
+                  >
+                    {pct}%
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 land:mt-1 text-[11px] land:text-[10px] text-cyan-200/85 text-center">
+              {format === 'limited'
+                ? rainChance === 100
+                  ? '100% Rain: Guaranteed rain delay with Duckworth–Lewis–Stern (DLS) overs & target reduction.'
+                  : rainChance === 0
+                  ? '0% Rain: Dry match with dynamic weather shifts (Overcast, Windy, Humid) affecting swing & visibility.'
+                  : `${rainChance}% chance of rain delay reducing overs & revising target via Duckworth–Lewis–Stern (DLS).`
+                : `${rainChance}% rain threat — drives dynamic Overcast & Drizzle swing/visibility shifts during play.`}
             </p>
           </div>
 
@@ -735,12 +779,13 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             </section>
 
             <section>
-              <h3 className="font-display text-lg tracking-wider text-amber-400 mb-2">BOWLING & PITCHES</h3>
+              <h3 className="font-display text-lg tracking-wider text-amber-400 mb-2">BOWLING, WEATHER & DLS</h3>
               <ul className="space-y-1.5 text-slate-300 text-xs sm:text-sm">
                 <li>• Pace & Seam: Fast, Swing, Seam, Yorker, Bouncer</li>
                 <li>• Spin Variations: Off Spin, Leg Spin, Googly, Doosra, Arm Ball, Carrom</li>
                 <li>• Pitch Conditions: Hard (bounce/boundaries), Green (seam/swing), Dry (sharp spin)</li>
-                <li>• Choose length (Full, Good, Short) & click BOWL (or Space)</li>
+                <li>• Weather Shifts: Overcast boosts swing, Windy adds drift, Humid brings dew, Drizzle lowers visibility</li>
+                <li>• Rain & DLS: Select 100%, 75%, 50%, 25%, or 0% rain chance — rain reduces overs & recalculates target via DLS</li>
               </ul>
             </section>
 

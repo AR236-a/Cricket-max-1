@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { computePlayerOfTheTournament } from '../game/awards';
-import { formatOvers, PITCH_META } from '../game/cricketEngine';
+import { formatOvers, PITCH_META, RAIN_CHANCE_OPTIONS } from '../game/cricketEngine';
 import { getTeamById, TEAMS } from '../game/teams';
 import {
   formatBattingAverage,
@@ -11,6 +11,7 @@ import {
 import {
   Difficulty,
   PitchCondition,
+  RainChance,
   ScreenId,
   TournamentFixture,
   TournamentPlayerStat,
@@ -19,12 +20,13 @@ import {
 } from '../game/types';
 import { TeamBadge } from './TeamBadge';
 import { TrophyCelebration } from './TrophyCelebration';
-import { ArrowLeft, Award, BarChart3, FastForward, Play, Shield, Swords, Trash2, Trophy } from 'lucide-react';
+import { ArrowLeft, Award, BarChart3, CloudRain, FastForward, Play, Shield, Swords, Trash2, Trophy } from 'lucide-react';
 
 interface TournamentHubProps {
   screen: ScreenId;
   tournament: TournamentState | null;
   defaultPitch: PitchCondition;
+  defaultRainChance: RainChance;
   careerPlayerStats: Record<string, TournamentPlayerStat>;
   onNavigate: (screen: ScreenId) => void;
   onStartTournament: (params: {
@@ -32,10 +34,12 @@ interface TournamentHubProps {
     userTeamId: string;
     difficulty: Difficulty;
     pitchCondition: PitchCondition;
+    rainChance: RainChance;
     oversPerDay?: 30 | 60 | 90;
     testCount?: 3 | 5;
   }) => void;
   onChangeTournamentPitch: (pitch: PitchCondition) => void;
+  onChangeTournamentRainChance: (rain: RainChance) => void;
   onResetCareerStats?: () => void;
   onPlayFixture: (fixture: TournamentFixture) => void;
   onSimFixture: (fixtureId: string) => void;
@@ -96,10 +100,12 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
   screen,
   tournament,
   defaultPitch,
+  defaultRainChance,
   careerPlayerStats,
   onNavigate,
   onStartTournament,
   onChangeTournamentPitch,
+  onChangeTournamentRainChance,
   onResetCareerStats,
   onPlayFixture,
   onSimFixture,
@@ -109,6 +115,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
   const [selectedTeamId, setSelectedTeamId] = useState<string>('ind');
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [pitchCondition, setPitchCondition] = useState<PitchCondition>(defaultPitch);
+  const [rainChance, setRainChance] = useState<RainChance>(defaultRainChance);
   const [oversPerDay, setOversPerDay] = useState<30 | 60 | 90>(90);
   const [testCount, setTestCount] = useState<3 | 5>(5);
   const [hubTab, setHubTab] = useState<'fixtures' | 'table' | 'stats'>('fixtures');
@@ -380,6 +387,39 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
             </div>
           </div>
 
+          {/* Rain Probability & DLS Method */}
+          <div className="w-full mb-4">
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase text-slate-300">
+                <CloudRain className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />
+                Rain Chance {!activeCatalog.isTest && '(DLS Method)'}
+              </span>
+              <span className="text-[11px] font-mono-num text-cyan-300">
+                {rainChance}% Probability
+              </span>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {RAIN_CHANCE_OPTIONS.map((pct) => {
+                const active = rainChance === pct;
+                return (
+                  <button
+                    key={pct}
+                    type="button"
+                    data-testid={`tournament-rain-chance-${pct}`}
+                    onClick={() => setRainChance(pct)}
+                    className={`py-2 px-1 rounded-lg border font-mono-num text-xs font-bold transition-colors cursor-pointer ${
+                      active
+                        ? 'bg-cyan-400 text-slate-950 border-cyan-300'
+                        : 'bg-[#0b1530]/95 border-cyan-500/35 text-slate-200 hover:border-cyan-300'
+                    }`}
+                  >
+                    {pct}%
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Difficulty */}
           <div className="w-full mb-5">
             <div className="text-xs font-semibold tracking-wider uppercase text-slate-300 mb-2">
@@ -411,6 +451,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
                 userTeamId: selectedTeamId,
                 difficulty,
                 pitchCondition,
+                rainChance,
                 oversPerDay,
                 testCount: activeCatalog.isTest ? testCount : undefined,
               })
@@ -442,7 +483,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
               </div>
             </div>
 
-            {/* Pitch Selector + Sim Controls */}
+            {/* Pitch & Rain Selectors + Sim Controls */}
             <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex items-center p-0.5 rounded-lg bg-[#081024] border border-cyan-500/30">
                 {(['hard', 'green', 'dry'] as PitchCondition[]).map((p) => (
@@ -460,6 +501,29 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
                   </button>
                 ))}
               </div>
+
+              {tournament.format === 'limited' && (
+                <div
+                  title="Rain Chance (DLS Method)"
+                  className="inline-flex items-center p-0.5 rounded-lg bg-[#081024] border border-cyan-500/30"
+                >
+                  <CloudRain className="w-3 h-3 text-cyan-300 mx-1.5 shrink-0" aria-hidden="true" />
+                  {RAIN_CHANCE_OPTIONS.map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => onChangeTournamentRainChance(pct)}
+                      className={`px-1.5 py-1 rounded text-[10px] font-mono-num font-bold cursor-pointer ${
+                        (tournament.rainChance ?? 0) === pct
+                          ? 'bg-cyan-400 text-slate-950'
+                          : 'text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      {pct}%
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <button
                 type="button"

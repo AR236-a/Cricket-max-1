@@ -16,6 +16,8 @@ export type ScreenId =
 export type GameMode = 'ai' | 'pvp';
 export type MatchFormat = 'limited' | 'test';
 export type PitchCondition = 'hard' | 'green' | 'dry';
+export type WeatherCondition = 'clear' | 'overcast' | 'windy' | 'humid' | 'drizzle';
+export type RainChance = 0 | 25 | 50 | 75 | 100;
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type LeagueId = 'international' | 'ipl';
 
@@ -177,6 +179,24 @@ export interface TestDaySummary {
   phase: 'day_completed' | 'new_day';
 }
 
+export interface DlsRainPopupState {
+  inningsNumber: 1 | 2;
+  rainChance: RainChance;
+  weatherCondition: WeatherCondition;
+  previousOvers: number;
+  revisedOvers: number;
+  oversLost: number;
+  team1ResourcesPct: number;
+  team2ResourcesPct: number;
+  previousTarget: number | null;
+  revisedTarget: number | null;
+  parScore: number | null;
+  matchEndedByRain: boolean;
+  inningsEndedByRain: boolean;
+  headline: string;
+  details: string;
+}
+
 export interface InningsState {
   battingTeamId: string;
   bowlingTeamId: string;
@@ -230,6 +250,16 @@ export interface MatchState {
   mode: GameMode;
   format: MatchFormat;
   pitchCondition: PitchCondition;
+  weatherCondition?: WeatherCondition;
+  rainChance?: RainChance;
+  originalTotalOvers?: number;
+  innings1MaxOvers?: number;
+  innings2MaxOvers?: number;
+  innings1ResourcesPct?: number;
+  innings2ResourcesPct?: number;
+  dlsApplied?: boolean;
+  dlsParScore?: number | null;
+  rainInterruptionsCount?: number;
   difficulty: Difficulty;
   homeTeamId: string;
   awayTeamId: string;
@@ -244,6 +274,7 @@ export interface MatchState {
   pendingDayPopup: TestDaySummary | null;
   pendingBatterPopup?: NextBatterPrompt | null;
   pendingMilestonePopup?: MilestoneCelebration | null;
+  pendingDlsPopup?: DlsRainPopupState | null;
   tossCaller: 'home' | 'away';
   tossWinner: 'home' | 'away' | null;
   tossCoinResult: 'heads' | 'tails' | null;
@@ -331,6 +362,7 @@ export interface TournamentState {
   title: string;
   format: MatchFormat;
   pitchCondition: PitchCondition;
+  rainChance?: RainChance;
   oversPerInningsOrDay: number; // 20 for T20/IPL, 50 for ODI, 30/60/90 for Test Series
   testMatchCount?: 3 | 5;
   userTeamId: string;

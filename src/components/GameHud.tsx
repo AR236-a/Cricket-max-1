@@ -13,6 +13,7 @@ import {
   PITCH_META,
   SHOT_META,
   SPIN_DELIVERY_TYPES,
+  WEATHER_META,
 } from '../game/cricketEngine';
 import { computePlayerOfTheMatch } from '../game/awards';
 import { getBattingHand, getBowlingStyle, getTeamById } from '../game/teams';
@@ -25,12 +26,16 @@ import {
   MatchState,
   ScreenId,
   ShotType,
+  WeatherCondition,
 } from '../game/types';
 import { RunRateChart } from './RunRateChart';
 import { TeamBadge } from './TeamBadge';
 import {
   Award,
   Calendar,
+  Cloud,
+  CloudRain,
+  Droplets,
   Flag,
   Flame,
   Home,
@@ -43,6 +48,7 @@ import {
   Users,
   Volume2,
   VolumeX,
+  Wind,
   X,
 } from 'lucide-react';
 
@@ -65,6 +71,7 @@ interface GameHudProps {
   onSelectNextBowler: (bowlerName: string) => void;
   onDismissOverPopup: () => void;
   onDismissMilestonePopup: () => void;
+  onDismissDlsPopup: () => void;
   onProceedToNewDay: () => void;
   onContinueNewDay: () => void;
   onToggleMute: () => void;
@@ -88,6 +95,14 @@ const SHOTS_ORDER: ShotType[] = [
 
 const LENGTHS_ORDER: DeliveryLength[] = ['full', 'good', 'short'];
 
+function renderWeatherIcon(weather: WeatherCondition, className = 'w-3 h-3') {
+  if (weather === 'overcast') return <Cloud className={className} aria-hidden="true" />;
+  if (weather === 'windy') return <Wind className={className} aria-hidden="true" />;
+  if (weather === 'humid') return <Droplets className={className} aria-hidden="true" />;
+  if (weather === 'drizzle') return <CloudRain className={className} aria-hidden="true" />;
+  return <Sun className={className} aria-hidden="true" />;
+}
+
 export const GameHud: React.FC<GameHudProps> = ({
   screen,
   match,
@@ -107,6 +122,7 @@ export const GameHud: React.FC<GameHudProps> = ({
   onSelectNextBowler,
   onDismissOverPopup,
   onDismissMilestonePopup,
+  onDismissDlsPopup,
   onProceedToNewDay,
   onContinueNewDay,
   onToggleMute,
@@ -155,6 +171,7 @@ export const GameHud: React.FC<GameHudProps> = ({
   const hasBlockingPopup =
     Boolean(match.pendingMilestonePopup) ||
     Boolean(match.pendingBatterPopup) ||
+    Boolean(match.pendingDlsPopup) ||
     Boolean(match.pendingOverPopup) ||
     Boolean(match.pendingDayPopup);
   const controlsLocked =
@@ -165,6 +182,8 @@ export const GameHud: React.FC<GameHudProps> = ({
     hasBlockingPopup ||
     showOpeningBowlerPicker;
   const isTest = match.format === 'test';
+  const weather: WeatherCondition = match.weatherCondition ?? 'clear';
+  const weatherMeta = WEATHER_META[weather];
   const testLeadText = getTestLeadText(match);
   const canDeclare = isTest && match.inningsNumber < 4 && playerBatting && !controlsLocked;
   const canSwapOpeningBowler =
@@ -218,26 +237,46 @@ export const GameHud: React.FC<GameHudProps> = ({
               </div>
             </div>
 
-            {/* Center: Overs & Run Rate / Test Day + Pitch (Desktop / Tablet / Mobile Landscape) */}
+            {/* Center: Overs & Run Rate / Test Day + Pitch + Weather (Desktop / Tablet / Mobile Landscape) */}
             <div className="hidden sm:flex land:flex flex-col items-center text-center shrink-0 min-w-0">
               {isTest ? (
                 <>
-                  <div className="font-mono-num text-base land:text-xs font-bold text-cyan-300 tracking-wide whitespace-nowrap">
-                    Day {match.currentDay}/5 · {formatOvers(active.ballsBowled)} ov
+                  <div className="font-mono-num text-base land:text-xs font-bold text-cyan-300 tracking-wide whitespace-nowrap flex items-center gap-2">
+                    <span>Day {match.currentDay}/5 · {formatOvers(active.ballsBowled)} ov</span>
+                    <span
+                      data-testid="hud-weather-chip"
+                      title={weatherMeta.description}
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 land:py-0 rounded border text-[10px] land:text-[9px] font-semibold ${weatherMeta.badgeColor}`}
+                    >
+                      {renderWeatherIcon(weather, 'w-2.5 h-2.5')}
+                      <span>{weatherMeta.label}</span>
+                    </span>
                   </div>
                   <div className="text-[11px] land:text-[10px] font-mono-num text-slate-300 whitespace-nowrap">
                     Today {formatOvers(match.ballsToday)}/{match.oversPerDay} · RR: {rr} ·{' '}
-                    {PITCH_META[match.pitchCondition ?? 'hard'].label} Pitch
+                    {PITCH_META[match.pitchCondition ?? 'hard'].label} Pitch · {weatherMeta.visibilityPct}% Vis
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="font-mono-num text-base land:text-xs font-bold text-cyan-300 tracking-wide whitespace-nowrap">
-                    {formatOvers(active.ballsBowled)} / {match.totalOvers}
+                  <div className="font-mono-num text-base land:text-xs font-bold text-cyan-300 tracking-wide whitespace-nowrap flex items-center gap-2">
+                    <span>
+                      {formatOvers(active.ballsBowled)} / {match.totalOvers}
+                      {match.dlsApplied ? ' (DLS)' : ''}
+                    </span>
+                    <span
+                      data-testid="hud-weather-chip"
+                      title={weatherMeta.description}
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 land:py-0 rounded border text-[10px] land:text-[9px] font-semibold ${weatherMeta.badgeColor}`}
+                    >
+                      {renderWeatherIcon(weather, 'w-2.5 h-2.5')}
+                      <span>{weatherMeta.label}</span>
+                    </span>
                   </div>
                   <div className="text-[11px] land:text-[10px] font-mono-num text-slate-400 whitespace-nowrap">
                     RR: {rr}
-                    {rrr ? ` · RRR: ${rrr}` : ''} · {PITCH_META[match.pitchCondition ?? 'hard'].label} Pitch
+                    {rrr ? ` · RRR: ${rrr}` : ''} · {PITCH_META[match.pitchCondition ?? 'hard'].label} ·{' '}
+                    {weatherMeta.shortLabel}
                   </div>
                 </>
               )}
@@ -253,7 +292,9 @@ export const GameHud: React.FC<GameHudProps> = ({
                     {isTest
                       ? testLeadText
                       : isChase && runsNeeded !== null && ballsRemaining !== null
-                      ? `Need ${runsNeeded} in ${ballsRemaining}b (T:${match.target})`
+                      ? `Need ${runsNeeded} in ${ballsRemaining}b (${match.dlsApplied ? 'DLS ' : ''}T:${match.target})`
+                      : (match.rainChance ?? 0) > 0
+                      ? `Rain ${match.rainChance}%`
                       : 'Bowling'}
                   </div>
                 </div>
@@ -308,10 +349,11 @@ export const GameHud: React.FC<GameHudProps> = ({
             {isTest ? (
               <>
                 <span className="font-bold text-cyan-300 whitespace-nowrap shrink-0">
-                  Day {match.currentDay}/5 · {formatOvers(active.ballsBowled)} ov
+                  D{match.currentDay} · {formatOvers(active.ballsBowled)}/{match.oversPerDay}
                 </span>
-                <span className="text-slate-300 whitespace-nowrap shrink-0">
-                  Today {formatOvers(match.ballsToday)}/{match.oversPerDay}
+                <span className={`inline-flex items-center gap-1 whitespace-nowrap shrink-0 ${weatherMeta.badgeColor.split(' ')[0]}`}>
+                  {renderWeatherIcon(weather, 'w-3 h-3')}
+                  <span>{weatherMeta.label}</span>
                 </span>
                 <span className="text-amber-300 font-semibold truncate text-right">
                   {match.inningsNumber === 1 ? `RR ${rr}` : testLeadText}
@@ -320,16 +362,16 @@ export const GameHud: React.FC<GameHudProps> = ({
             ) : (
               <>
                 <span className="font-bold text-cyan-300 whitespace-nowrap shrink-0">
-                  {formatOvers(active.ballsBowled)}/{match.totalOvers} ov
+                  {formatOvers(active.ballsBowled)}/{match.totalOvers} ov{match.dlsApplied ? ' DLS' : ''}
                 </span>
-                <span className="text-slate-300 whitespace-nowrap shrink-0">
-                  RR {rr}
-                  {rrr ? ` · RRR ${rrr}` : ''}
+                <span className={`inline-flex items-center gap-1 whitespace-nowrap shrink-0 ${weatherMeta.badgeColor.split(' ')[0]}`}>
+                  {renderWeatherIcon(weather, 'w-3 h-3')}
+                  <span>{weatherMeta.label}</span>
                 </span>
                 <span className="text-amber-300 font-semibold whitespace-nowrap shrink-0">
                   {isChase && runsNeeded !== null && ballsRemaining !== null
-                    ? `Need ${runsNeeded} in ${ballsRemaining}b`
-                    : `${PITCH_META[match.pitchCondition ?? 'hard'].label} Pitch`}
+                    ? `${match.dlsApplied ? 'DLS ' : ''}Need ${runsNeeded} (${ballsRemaining}b)`
+                    : `${PITCH_META[match.pitchCondition ?? 'hard'].label}`}
                 </span>
               </>
             )}
@@ -688,14 +730,22 @@ export const GameHud: React.FC<GameHudProps> = ({
                   </span>
                 </div>
 
-                <span
-                  className={`hidden sm:inline-block text-[10px] font-mono-num font-semibold px-2 py-0.5 rounded border ${
-                    PITCH_META[match.pitchCondition ?? 'hard'].badgeColor
-                  }`}
-                >
-                  {PITCH_META[match.pitchCondition ?? 'hard'].label} ·{' '}
-                  {PITCH_META[match.pitchCondition ?? 'hard'].shortLabel}
-                </span>
+                <div className="hidden sm:flex items-center gap-1.5">
+                  <span
+                    className={`inline-flex items-center gap-1 text-[10px] font-mono-num font-semibold px-2 py-0.5 rounded border ${weatherMeta.badgeColor}`}
+                  >
+                    {renderWeatherIcon(weather, 'w-3 h-3')}
+                    {weatherMeta.label} · {weatherMeta.shortLabel}
+                  </span>
+                  <span
+                    className={`inline-block text-[10px] font-mono-num font-semibold px-2 py-0.5 rounded border ${
+                      PITCH_META[match.pitchCondition ?? 'hard'].badgeColor
+                    }`}
+                  >
+                    {PITCH_META[match.pitchCondition ?? 'hard'].label} ·{' '}
+                    {PITCH_META[match.pitchCondition ?? 'hard'].shortLabel}
+                  </span>
+                </div>
               </div>
 
               <div
@@ -1113,10 +1163,95 @@ export const GameHud: React.FC<GameHudProps> = ({
         </div>
       )}
 
+      {/* RAIN DELAY & DLS REVISION POPUP */}
+      {match.pendingDlsPopup &&
+        !match.pendingMilestonePopup &&
+        !match.pendingBatterPopup &&
+        screen === 'playing' && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Rain Delay DLS Target Revision"
+          data-testid="dls-rain-popup"
+          className="pointer-events-auto fixed inset-0 z-35 bg-[#020612]/88 flex items-center justify-center p-4 land:p-2"
+        >
+          {(() => {
+            const dls = match.pendingDlsPopup;
+            return (
+              <div className="animate-modal-pop w-full max-w-md land:max-w-xl max-h-[90vh] land:max-h-[92dvh] overflow-y-auto rounded-xl bg-[#0b1530] border-2 border-cyan-400/80 p-5 sm:p-6 land:p-3.5 text-center space-y-4 land:space-y-2.5 shadow-[0_0_40px_rgba(56,189,248,0.32)]">
+                <div className="mx-auto w-14 h-14 land:w-10 land:h-10 rounded-full bg-cyan-400/15 border border-cyan-400/50 flex items-center justify-center">
+                  <CloudRain className="w-8 h-8 land:w-5 land:h-5 text-cyan-300" aria-hidden="true" />
+                </div>
+
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/40 text-[10px] font-mono-num font-bold uppercase tracking-widest text-cyan-300 mb-1.5">
+                    Duckworth–Lewis–Stern · {dls.rainChance}% Rain
+                  </div>
+                  <h2 className="font-display text-3xl land:text-2xl font-bold tracking-wider text-amber-400 leading-tight">
+                    {dls.headline}
+                  </h2>
+                  <p className="text-xs sm:text-sm land:text-xs text-slate-200 mt-1.5 land:mt-1 leading-relaxed">
+                    {dls.details}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5 land:gap-2 text-left text-xs font-mono-num">
+                  <div className="p-3 land:p-2 rounded-lg bg-[#070f24] border border-cyan-500/30">
+                    <div className="text-[10px] text-slate-400 uppercase">Overs Allocation</div>
+                    <div className="text-base land:text-sm font-bold text-white mt-0.5">
+                      {dls.previousOvers} → {dls.revisedOvers} ov
+                    </div>
+                    <div className="text-[11px] text-rose-300">
+                      -{dls.oversLost} {dls.oversLost === 1 ? 'over' : 'overs'} lost
+                    </div>
+                  </div>
+                  <div className="p-3 land:p-2 rounded-lg bg-[#070f24] border border-cyan-500/30">
+                    <div className="text-[10px] text-slate-400 uppercase">DLS Resources</div>
+                    <div className="text-sm land:text-xs font-bold text-cyan-300 mt-0.5">
+                      Inn 1: {dls.team1ResourcesPct}%
+                    </div>
+                    <div className="text-sm land:text-xs font-bold text-amber-300">
+                      Inn 2: {dls.team2ResourcesPct}%
+                    </div>
+                  </div>
+                </div>
+
+                {dls.revisedTarget !== null && (
+                  <div className="p-3 land:p-2 rounded-lg bg-[#070f24] border border-amber-400/50 flex items-center justify-between gap-2 text-xs font-mono-num">
+                    <span className="text-slate-300 uppercase font-semibold">
+                      DLS Target Revised
+                    </span>
+                    <span className="text-base land:text-sm font-bold text-amber-300">
+                      {dls.previousTarget !== null ? `${dls.previousTarget} → ` : ''}
+                      {dls.revisedTarget}
+                      {dls.parScore !== null ? ` (Par ${dls.parScore})` : ''}
+                    </span>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  data-testid="dls-dismiss-btn"
+                  onClick={onDismissDlsPopup}
+                  className="w-full py-2.5 land:py-2 px-5 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-display text-lg land:text-base font-bold tracking-wider uppercase cursor-pointer"
+                >
+                  {dls.matchEndedByRain
+                    ? 'VIEW DLS RESULT ▶'
+                    : dls.inningsEndedByRain
+                    ? 'GO TO INNINGS BREAK (DLS) ▶'
+                    : 'RESUME PLAY ▶'}
+                </button>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* END OF OVER POPUP */}
       {match.pendingOverPopup &&
         !match.pendingMilestonePopup &&
         !match.pendingBatterPopup &&
+        !match.pendingDlsPopup &&
         !match.pendingDayPopup &&
         screen === 'playing' && (
         <div
@@ -1288,6 +1423,7 @@ export const GameHud: React.FC<GameHudProps> = ({
       {match.pendingDayPopup?.phase === 'day_completed' &&
         !match.pendingMilestonePopup &&
         !match.pendingBatterPopup &&
+        !match.pendingDlsPopup &&
         screen === 'playing' && (
         <div
           role="dialog"
@@ -1401,6 +1537,7 @@ export const GameHud: React.FC<GameHudProps> = ({
       {match.pendingDayPopup?.phase === 'new_day' &&
         !match.pendingMilestonePopup &&
         !match.pendingBatterPopup &&
+        !match.pendingDlsPopup &&
         screen === 'playing' && (
         <div
           role="dialog"
@@ -1577,6 +1714,8 @@ export const GameHud: React.FC<GameHudProps> = ({
                   ? match.inningsNumber === 3 && match.target !== null
                     ? `${getTeamById(active.bowlingTeamId).name} need ${match.target} runs to win`
                     : `${testLeadText ?? `Day ${match.currentDay}/5`}`
+                  : match.dlsApplied
+                  ? `${getTeamById(match.innings1.bowlingTeamId).name} need ${match.target ?? match.innings1.runs + 1} runs to win (DLS · ${match.innings2MaxOvers ?? match.totalOvers} ov)`
                   : `${getTeamById(match.innings1.bowlingTeamId).name} need ${match.innings1.runs + 1} runs to win`}
               </div>
             </div>

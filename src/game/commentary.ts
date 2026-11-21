@@ -1,4 +1,11 @@
-import { DeliveryLength, DeliveryType, PitchCondition, ShotType, WicketKind } from './types';
+import {
+  DeliveryLength,
+  DeliveryType,
+  PitchCondition,
+  ShotType,
+  WeatherCondition,
+  WicketKind,
+} from './types';
 
 const DELIVERY_FLAVOR: Record<DeliveryType, Record<DeliveryLength, string>> = {
   fast: {
@@ -130,6 +137,7 @@ export function buildDeliveryCommentary(params: {
   isWicket: boolean;
   wicketKind?: WicketKind;
   pitchCondition?: PitchCondition;
+  weatherCondition?: WeatherCondition;
   bowlingSide?: 'over' | 'round';
 }): string {
   const {
@@ -142,6 +150,7 @@ export function buildDeliveryCommentary(params: {
     isWicket,
     wicketKind,
     pitchCondition,
+    weatherCondition,
     bowlingSide,
   } = params;
 
@@ -155,14 +164,22 @@ export function buildDeliveryCommentary(params: {
       : pitchCondition === 'hard'
       ? ' off the hard true surface'
       : '';
+  const weatherTag =
+    weatherCondition === 'overcast' && (deliveryType === 'swing' || deliveryType === 'seam' || deliveryType === 'fast')
+      ? ' under heavy overcast skies'
+      : weatherCondition === 'drizzle'
+      ? ' through passing drizzle'
+      : weatherCondition === 'windy' && (shot === 'loft' || shot === 'hook')
+      ? ' against the gusting crosswind'
+      : '';
 
   if (isWicket) {
     const kind = wicketKind ?? 'Bowled';
-    return `${WICKET_FLAVOR[kind](bowlerName, strikerName, shot, deliveryDesc)}${pitchTag ? ` (${pitchTag.trim()})` : ''}`;
+    return `${WICKET_FLAVOR[kind](bowlerName, strikerName, shot, deliveryDesc)}${pitchTag ? ` (${pitchTag.trim()})` : ''}${weatherTag ? ` — ${weatherTag.trim()}` : ''}`;
   }
 
   if (runs === 6) {
-    return `${bowlerName} bowls a ${deliveryDesc}${pitchTag}. ${strikerName} ${SHOT_VERB_SIX[shot]}`;
+    return `${bowlerName} bowls a ${deliveryDesc}${pitchTag}${weatherTag}. ${strikerName} ${SHOT_VERB_SIX[shot]}`;
   }
 
   if (runs === 4) {

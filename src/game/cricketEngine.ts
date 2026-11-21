@@ -1,4 +1,15 @@
 import { buildDeliveryCommentary } from './commentary';
+import {
+  calculateDlsResourcePct,
+  calculateDlsTarget,
+  computeRainReduction,
+  computeWeatherModifiers,
+  maybeShiftWeather,
+  pickInitialWeather,
+  RAIN_CHANCE_OPTIONS,
+  shouldTriggerRainInterruption,
+  WEATHER_META,
+} from './dls';
 import { getBowlingStyle, getTeamById } from './teams';
 import {
   BatterStats,
@@ -10,6 +21,7 @@ import {
   DeliveryResolution,
   DeliveryType,
   Difficulty,
+  DlsRainPopupState,
   GameMode,
   InningsState,
   MatchFormat,
@@ -19,10 +31,14 @@ import {
   NextBatterPrompt,
   OverProgressPoint,
   PitchCondition,
+  RainChance,
   ShotType,
   TeamFormatContext,
+  WeatherCondition,
   WicketKind,
 } from './types';
+
+export { RAIN_CHANCE_OPTIONS, WEATHER_META };
 
 export const SHOT_META: Record<
   ShotType,
@@ -209,6 +225,8 @@ export function createInitialMatchState(params: {
   mode: GameMode;
   format?: MatchFormat;
   pitchCondition?: PitchCondition;
+  weatherCondition?: WeatherCondition;
+  rainChance?: RainChance;
   difficulty: Difficulty;
   homeTeamId: string;
   awayTeamId: string;
@@ -221,6 +239,9 @@ export function createInitialMatchState(params: {
 }): MatchState {
   const format: MatchFormat = params.format ?? 'limited';
   const pitchCondition: PitchCondition = params.pitchCondition ?? 'hard';
+  const rainChance: RainChance = params.rainChance ?? 0;
+  const weatherCondition: WeatherCondition =
+    params.weatherCondition ?? pickInitialWeather(rainChance);
   const oversPerDay: 30 | 60 | 90 = params.oversPerDay ?? 90;
   const effectiveOvers = format === 'test' ? oversPerDay : params.totalOvers;
 
@@ -233,10 +254,13 @@ export function createInitialMatchState(params: {
   });
   const openingPair = `${innings1.batters[0]?.name ?? 'Opener'} & ${innings1.batters[1]?.name ?? 'Partner'}`;
   const pitchMeta = PITCH_META[pitchCondition];
+  const weatherMeta = WEATHER_META[weatherCondition];
   const formatTag =
     format === 'test'
-      ? `Test Match (Day 1 · ${oversPerDay} ov/day · ${pitchMeta.label} Pitch)`
-      : `${effectiveOvers}-Over Match (${pitchMeta.label} Pitch)`;
+      ? `Test Match (Day 1 · ${oversPerDay} ov/day · ${pitchMeta.label} Pitch · ${weatherMeta.label})`
+      : `${effectiveOvers}-Over Match (${pitchMeta.label} Pitch · ${weatherMeta.label}${
+          rainChance > 0 ? ` · ${rainChance}% Rain` : ''
+        })`;
   const introCommentary =
     params.mode === 'ai' && params.homeBatsFirst
       ? `${formatTag} underway! ${openingPair} walk out to face ${innings1.bowlerName}. Choose your shot!`
@@ -248,6 +272,16 @@ export function createInitialMatchState(params: {
     mode: params.mode,
     format,
     pitchCondition,
+    weatherCondition,
+    rainChance,
+    originalTotalOvers: effectiveOvers,
+    innings1MaxOvers: effectiveOvers,
+    innings2MaxOvers: effectiveOvers,
+    innings1ResourcesPct: 100,
+    innings2ResourcesPct: 100,
+    dlsApplied: false,
+    dlsParScore: null,
+    rainInterruptionsCount: 0,
     difficulty: params.difficulty,
     homeTeamId: params.homeTeamId,
     awayTeamId: params.awayTeamId,
@@ -262,6 +296,7 @@ export function createInitialMatchState(params: {
     pendingDayPopup: null,
     pendingBatterPopup: null,
     pendingMilestonePopup: null,
+    pendingDlsPopup: null,
     tossCaller: 'home',
     tossWinner: params.tossWinner ?? 'home',
     tossCoinResult: params.tossCoinResult ?? 'heads',
@@ -397,7 +432,8 @@ export function chooseAiDelivery(
   difficulty: Difficulty,
   rng: () => number = Math.random,
   pitchCondition: PitchCondition = 'hard',
-  bowlerStyle?: BowlingStyle
+  bowlerStyle?: BowlingStyle,
+  weatherCondition: WeatherCondition = 'clear'
 ): { type: DeliveryType; length: DeliveryLength } {
   const lengths: DeliveryLength[] = ['full', 'good', 'short'];
   const spinPool: DeliveryType[] = ['off_spin', 'leg_spin', 'googly', 'doosra', 'arm_ball', 'carrom'];
@@ -415,7 +451,7 @@ export function chooseAiDelivery(
     pool =
       difficulty === 'easy'
         ? ['fast', 'swing', 'seam']
-        : pitchCondition === 'green'
+        : pitchCondition === 'green' || weatherCondition === 'overcast' || weatherCondition === 'drizzle'
         ? ['swing', 'seam', 'fast', 'swing', 'seam', 'yorker']
         : pacePool;
   } else if (pitchCondition === 'dry') {
@@ -502,12 +538,14 @@ export function resolveDelivery(params: {
   bowlerName: string;
   format?: MatchFormat;
   pitchCondition?: PitchCondition;
+  weatherCondition?: WeatherCondition;
   bowlingSide?: BowlingSide;
   rng?: () => number;
 }): DeliveryResolution {
   const rng = params.rng ?? Math.random;
   const { shot, deliveryType, deliveryLength, difficulty, playerIsBatting } = params;
   const pitchCondition: PitchCondition = params.pitchCondition ?? 'hard';
+  const weatherCondition: WeatherCondition = params.weatherCondition ?? 'clear';
   const bowlingSide: BowlingSide = params.bowlingSide ?? 'over';
   const spin = isSpinDelivery(deliveryType);
 
@@ -619,6 +657,12 @@ export function resolveDelivery(params: {
       wicketMod += 0.012;
     }
   }
+
+  // Weather condition behavior & visibility modifiers (overcast swing, windy drift, humid dew, drizzle)
+  const weatherMods = computeWeatherModifiers(weatherCondition, deliveryType, shot);
+  wicketMod += weatherMods.wicketMod;
+  boundaryMod += weatherMods.boundaryMod;
+  dotMod += weatherMods.dotMod;
 
   // In Test cricket, slightly fewer wild 6s and more patient accumulation / bowling threat
   const testMode = params.format === 'test';
@@ -749,6 +793,7 @@ export function resolveDelivery(params: {
     isWicket,
     wicketKind,
     pitchCondition,
+    weatherCondition,
     bowlingSide,
   });
 
@@ -1248,26 +1293,179 @@ export function applyDeliveryToMatch(
     }
 
     return {
-      nextState: {
-        ...nextState,
-        pendingOverPopup: completedOverSummary,
-      },
+      nextState: (() => {
+        if (overCompleted && !wickets) {
+          const wShift = maybeShiftWeather({
+            currentWeather: nextState.weatherCondition ?? 'clear',
+            rainChance: nextState.rainChance ?? 0,
+            format: nextState.format,
+          });
+          if (wShift.changed && wShift.commentary) {
+            const wEntry: CommentaryEntry = {
+              id: (nextState.commentaryLog[0]?.id ?? 0) + 1,
+              overBall: overBallLabel,
+              outcomeSymbol: 'WTH',
+              text: wShift.commentary,
+              isWicket: false,
+              isBoundary: false,
+            };
+            return {
+              ...nextState,
+              weatherCondition: wShift.nextWeather,
+              lastCommentary: wShift.commentary,
+              commentaryLog: [wEntry, ...nextState.commentaryLog].slice(0, 30),
+              pendingOverPopup: completedOverSummary,
+            };
+          }
+        }
+        return {
+          ...nextState,
+          pendingOverPopup: completedOverSummary,
+        };
+      })(),
       enteredInningsBreak: false,
       matchFinished: false,
     };
   }
 
   // LIMITED OVERS BRANCH
-  const maxBalls = state.totalOvers * 6;
+  const origOvers = state.originalTotalOvers ?? state.totalOvers;
+  const activeMaxOvers =
+    state.inningsNumber === 1
+      ? state.innings1MaxOvers ?? state.totalOvers
+      : state.innings2MaxOvers ?? state.totalOvers;
+  const maxBalls = activeMaxOvers * 6;
   const allOut = wickets >= 10;
   const oversDone = ballsBowled >= maxBalls;
 
+  // Dynamic weather shift on completed over (before checking rain interruption)
+  if (overCompleted && !allOut && !oversDone) {
+    const wShift = maybeShiftWeather({
+      currentWeather: nextState.weatherCondition ?? 'clear',
+      rainChance: nextState.rainChance ?? 0,
+      format: nextState.format,
+    });
+    if (wShift.changed && wShift.commentary) {
+      const wEntry: CommentaryEntry = {
+        id: (nextState.commentaryLog[0]?.id ?? 0) + 1,
+        overBall: overBallLabel,
+        outcomeSymbol: 'WTH',
+        text: wShift.commentary,
+        isWicket: false,
+        isBoundary: false,
+      };
+      nextState = {
+        ...nextState,
+        weatherCondition: wShift.nextWeather,
+        lastCommentary: wShift.commentary,
+        commentaryLog: [wEntry, ...nextState.commentaryLog].slice(0, 30),
+      };
+    }
+  }
+
   if (state.inningsNumber === 1) {
-    const inningsDone = allOut || oversDone;
+    let inningsDone = allOut || oversDone;
+    let rainPopup: DlsRainPopupState | null = null;
+    const completedOversCount = Math.floor(ballsBowled / 6);
+    const inn1WasReduced = (state.innings1MaxOvers ?? state.totalOvers) < origOvers;
+
+    if (
+      overCompleted &&
+      !inningsDone &&
+      shouldTriggerRainInterruption({
+        format: state.format,
+        rainChance: state.rainChance ?? 0,
+        inningsNumber: 1,
+        completedOvers: completedOversCount,
+        maxOvers: activeMaxOvers,
+        rainInterruptionsInMatch: state.rainInterruptionsCount ?? 0,
+        rainInterruptionsInInnings: inn1WasReduced ? 1 : 0,
+      })
+    ) {
+      const reduction = computeRainReduction({
+        originalMaxOvers: origOvers,
+        maxOvers: activeMaxOvers,
+        completedOvers: completedOversCount,
+        wicketsLost: wickets,
+        currentResourcesPct: state.innings1ResourcesPct ?? 100,
+        rainChance: state.rainChance ?? 0,
+      });
+
+      const inn2Resources = calculateDlsResourcePct(origOvers, reduction.revisedOvers, 0);
+      const inningsEndedByRain = ballsBowled >= reduction.revisedOvers * 6;
+      const dlsPreview = calculateDlsTarget({
+        team1Score: runs,
+        team1ResourcesPct: reduction.newResourcesPct,
+        team2ResourcesPct: inn2Resources,
+        originalMaxOvers: origOvers,
+      });
+
+      const batTeam = getTeamById(updatedInnings.battingTeamId);
+      const rainMsg = inningsEndedByRain
+        ? `RAIN ENDS 1ST INNINGS! ${batTeam.code} finish on ${runs}/${wickets} (${reduction.revisedOvers} ov). DLS Target set to ${dlsPreview.target}!`
+        : `RAIN DELAY! ${reduction.oversLost} ${reduction.oversLost === 1 ? 'over' : 'overs'} lost — match reduced to ${reduction.revisedOvers} overs per side (DLS Method).`;
+
+      rainPopup = {
+        inningsNumber: 1,
+        rainChance: state.rainChance ?? 0,
+        weatherCondition: 'drizzle',
+        previousOvers: reduction.previousOvers,
+        revisedOvers: reduction.revisedOvers,
+        oversLost: reduction.oversLost,
+        team1ResourcesPct: reduction.newResourcesPct,
+        team2ResourcesPct: inn2Resources,
+        previousTarget: null,
+        revisedTarget: inningsEndedByRain ? dlsPreview.target : null,
+        parScore: inningsEndedByRain ? dlsPreview.parScore : null,
+        matchEndedByRain: false,
+        inningsEndedByRain,
+        headline: inningsEndedByRain ? 'RAIN ENDS INNINGS · DLS APPLIED' : 'RAIN DELAY · OVERS REDUCED',
+        details: rainMsg,
+      };
+
+      const dlsEntry: CommentaryEntry = {
+        id: (nextState.commentaryLog[0]?.id ?? 0) + 1,
+        overBall: overBallLabel,
+        outcomeSymbol: 'DLS',
+        text: rainMsg,
+        isWicket: false,
+        isBoundary: false,
+      };
+
+      inningsDone = inningsEndedByRain;
+      nextState = {
+        ...nextState,
+        weatherCondition: 'drizzle',
+        totalOvers: reduction.revisedOvers,
+        innings1MaxOvers: reduction.revisedOvers,
+        innings2MaxOvers: reduction.revisedOvers,
+        innings1ResourcesPct: reduction.newResourcesPct,
+        innings2ResourcesPct: inn2Resources,
+        dlsApplied: true,
+        rainInterruptionsCount: (state.rainInterruptionsCount ?? 0) + 1,
+        lastCommentary: rainMsg,
+        commentaryLog: [dlsEntry, ...nextState.commentaryLog].slice(0, 30),
+      };
+    }
+
+    const r1 = nextState.innings1ResourcesPct ?? 100;
+    const r2 = nextState.innings2ResourcesPct ?? 100;
+    const inn1Target = inningsDone
+      ? Math.abs(r2 - r1) >= 0.05
+        ? calculateDlsTarget({
+            team1Score: runs,
+            team1ResourcesPct: r1,
+            team2ResourcesPct: r2,
+            originalMaxOvers: origOvers,
+          }).target
+        : runs + 1
+      : nextState.target;
+
     return {
       nextState: {
         ...nextState,
-        target: inningsDone ? runs + 1 : state.target,
+        target: inn1Target,
+        pendingDlsPopup: rainPopup,
         pendingOverPopup: inningsDone ? null : completedOverSummary,
         pendingBatterPopup: inningsDone ? null : nextState.pendingBatterPopup,
       },
@@ -1276,9 +1474,102 @@ export function applyDeliveryToMatch(
     };
   }
 
-  const target = state.target ?? state.innings1.runs + 1;
-  const chasedDown = runs >= target;
-  const innings2Done = chasedDown || allOut || oversDone;
+  let target = state.target ?? state.innings1.runs + 1;
+  const chasedDownBeforeRain = runs >= target;
+  let innings2Done = chasedDownBeforeRain || allOut || oversDone;
+  let rainPopup: DlsRainPopupState | null = null;
+  let dlsParScore = state.dlsParScore ?? null;
+  let dlsApplied = Boolean(state.dlsApplied);
+
+  const completedOversCount = Math.floor(ballsBowled / 6);
+  const inn1WasReduced = (state.innings1MaxOvers ?? state.totalOvers) < origOvers;
+  const inn2RainUsed = (state.rainInterruptionsCount ?? 0) > (inn1WasReduced ? 1 : 0);
+
+  if (
+    overCompleted &&
+    !innings2Done &&
+    shouldTriggerRainInterruption({
+      format: state.format,
+      rainChance: state.rainChance ?? 0,
+      inningsNumber: 2,
+      completedOvers: completedOversCount,
+      maxOvers: activeMaxOvers,
+      rainInterruptionsInMatch: state.rainInterruptionsCount ?? 0,
+      rainInterruptionsInInnings: inn2RainUsed ? 1 : 0,
+    })
+  ) {
+    const reduction = computeRainReduction({
+      originalMaxOvers: origOvers,
+      maxOvers: activeMaxOvers,
+      completedOvers: completedOversCount,
+      wicketsLost: wickets,
+      currentResourcesPct: state.innings2ResourcesPct ?? 100,
+      rainChance: state.rainChance ?? 0,
+    });
+
+    const dls = calculateDlsTarget({
+      team1Score: state.innings1.runs,
+      team1ResourcesPct: state.innings1ResourcesPct ?? 100,
+      team2ResourcesPct: reduction.newResourcesPct,
+      originalMaxOvers: origOvers,
+    });
+
+    const previousTarget = target;
+    target = dls.target;
+    dlsParScore = dls.parScore;
+    dlsApplied = true;
+    const noOversLeft = ballsBowled >= reduction.revisedOvers * 6;
+    const passedRevisedTarget = runs >= dls.target;
+    const matchEndedByRain = noOversLeft || passedRevisedTarget;
+    innings2Done = matchEndedByRain;
+
+    const rainMsg = noOversLeft
+      ? `RAIN ENDS PLAY! DLS Par Score is ${dls.parScore} (Target ${dls.target}); ${getTeamById(updatedInnings.battingTeamId).code} are on ${runs}/${wickets}.`
+      : passedRevisedTarget
+      ? `RAIN & DLS TARGET REVISED! Target cut from ${previousTarget} to ${dls.target} in ${reduction.revisedOvers} overs — ${getTeamById(updatedInnings.battingTeamId).code} are already past the target!`
+      : `RAIN DELAY! ${reduction.oversLost} ${reduction.oversLost === 1 ? 'over' : 'overs'} lost (${reduction.revisedOvers} ov innings). DLS Target revised from ${previousTarget} to ${dls.target} (Par: ${dls.parScore}).`;
+
+    rainPopup = {
+      inningsNumber: 2,
+      rainChance: state.rainChance ?? 0,
+      weatherCondition: 'drizzle',
+      previousOvers: reduction.previousOvers,
+      revisedOvers: reduction.revisedOvers,
+      oversLost: reduction.oversLost,
+      team1ResourcesPct: state.innings1ResourcesPct ?? 100,
+      team2ResourcesPct: reduction.newResourcesPct,
+      previousTarget,
+      revisedTarget: dls.target,
+      parScore: dls.parScore,
+      matchEndedByRain,
+      inningsEndedByRain: false,
+      headline: matchEndedByRain ? 'RAIN ENDS PLAY · DLS RESULT' : 'RAIN DELAY · DLS TARGET REVISED',
+      details: rainMsg,
+    };
+
+    const dlsEntry: CommentaryEntry = {
+      id: (nextState.commentaryLog[0]?.id ?? 0) + 1,
+      overBall: overBallLabel,
+      outcomeSymbol: 'DLS',
+      text: rainMsg,
+      isWicket: false,
+      isBoundary: false,
+    };
+
+    nextState = {
+      ...nextState,
+      weatherCondition: 'drizzle',
+      totalOvers: reduction.revisedOvers,
+      innings2MaxOvers: reduction.revisedOvers,
+      innings2ResourcesPct: reduction.newResourcesPct,
+      target: dls.target,
+      dlsApplied: true,
+      dlsParScore: dls.parScore,
+      rainInterruptionsCount: (state.rainInterruptionsCount ?? 0) + 1,
+      lastCommentary: rainMsg,
+      commentaryLog: [dlsEntry, ...nextState.commentaryLog].slice(0, 30),
+    };
+  }
 
   let matchComplete = false;
   let winnerTeamId: string | 'tie' | null = null;
@@ -1288,27 +1579,45 @@ export function applyDeliveryToMatch(
     matchComplete = true;
     const chasingTeam = getTeamById(updatedInnings.battingTeamId);
     const defendingTeam = getTeamById(updatedInnings.bowlingTeamId);
+    const dlsSuffix = dlsApplied ? ' (DLS Method)' : '';
 
-    if (runs >= target) {
+    if (dlsApplied && dlsParScore !== null && rainPopup?.matchEndedByRain) {
+      if (runs > dlsParScore) {
+        winnerTeamId = chasingTeam.id;
+        const margin = runs - dlsParScore;
+        resultSummary = `${chasingTeam.name} won by ${margin} ${margin === 1 ? 'run' : 'runs'} (DLS Method)!`;
+      } else if (runs === dlsParScore) {
+        winnerTeamId = 'tie';
+        resultSummary = `Match Tied on ${runs} runs (DLS Method)!`;
+      } else {
+        winnerTeamId = defendingTeam.id;
+        const margin = dlsParScore - runs;
+        resultSummary = `${defendingTeam.name} won by ${margin} ${margin === 1 ? 'run' : 'runs'} (DLS Method)!`;
+      }
+    } else if (runs >= target) {
       winnerTeamId = chasingTeam.id;
       const wktsRemaining = 10 - wickets;
-      resultSummary = `${chasingTeam.name} won by ${wktsRemaining} ${wktsRemaining === 1 ? 'wicket' : 'wickets'}!`;
-    } else if (runs === state.innings1.runs) {
+      resultSummary = `${chasingTeam.name} won by ${wktsRemaining} ${wktsRemaining === 1 ? 'wicket' : 'wickets'}${dlsSuffix}!`;
+    } else if (runs === target - 1) {
       winnerTeamId = 'tie';
-      resultSummary = `Match Tied! Both teams finished on ${runs} runs.`;
+      resultSummary = `Match Tied! Both sides level on ${runs} runs${dlsSuffix}.`;
     } else {
       winnerTeamId = defendingTeam.id;
-      const margin = state.innings1.runs - runs;
-      resultSummary = `${defendingTeam.name} won by ${margin} ${margin === 1 ? 'run' : 'runs'}!`;
+      const margin = target - 1 - runs;
+      resultSummary = `${defendingTeam.name} won by ${margin} ${margin === 1 ? 'run' : 'runs'}${dlsSuffix}!`;
     }
   }
 
   return {
     nextState: {
       ...nextState,
+      target,
+      dlsApplied,
+      dlsParScore,
       matchComplete,
       winnerTeamId,
       resultSummary,
+      pendingDlsPopup: rainPopup,
       pendingOverPopup: innings2Done ? null : completedOverSummary,
       pendingBatterPopup: innings2Done ? null : nextState.pendingBatterPopup,
     },
@@ -1423,6 +1732,14 @@ export function dismissMilestonePopup(state: MatchState): MatchState {
   };
 }
 
+export function dismissDlsPopup(state: MatchState): MatchState {
+  if (!state.pendingDlsPopup) return state;
+  return {
+    ...state,
+    pendingDlsPopup: null,
+  };
+}
+
 export function advanceTestDayPopupToNewDay(state: MatchState): MatchState {
   if (!state.pendingDayPopup || state.pendingDayPopup.phase !== 'day_completed') {
     return state;
@@ -1499,31 +1816,48 @@ export function declareTestInnings(state: MatchState): {
 
 export function startNextInnings(state: MatchState): MatchState {
   if (state.format === 'limited') {
-    const target = state.innings1.runs + 1;
+    const origOvers = state.originalTotalOvers ?? state.totalOvers;
+    const inn2Overs = state.innings2MaxOvers ?? state.totalOvers;
+    const r1 = state.innings1ResourcesPct ?? 100;
+    const r2 =
+      state.innings2ResourcesPct ?? calculateDlsResourcePct(origOvers, inn2Overs, 0);
+    const dlsNeeded = Boolean(state.dlsApplied) || Math.abs(r2 - r1) >= 0.05;
+    const dls = calculateDlsTarget({
+      team1Score: state.innings1.runs,
+      team1ResourcesPct: r1,
+      team2ResourcesPct: r2,
+      originalMaxOvers: origOvers,
+    });
+    const target = dlsNeeded ? dls.target : state.innings1.runs + 1;
     const innings2 = createInningsState(
       state.innings1.bowlingTeamId,
       state.innings1.battingTeamId,
-      { format: state.format, totalOvers: state.totalOvers }
+      { format: state.format, totalOvers: inn2Overs }
     );
     const playerBatting2nd =
       state.mode === 'ai' && innings2.battingTeamId === state.homeTeamId;
     const openingPair = `${innings2.batters[0]?.name ?? 'Opener'} & ${innings2.batters[1]?.name ?? 'Partner'}`;
+    const dlsLabel = dlsNeeded ? ' (DLS Target)' : '';
     const startMsg =
       state.mode === 'ai'
         ? playerBatting2nd
-          ? `Chase ${target} runs! ${openingPair} face ${innings2.bowlerName}.`
-          : `Defend ${state.innings1.runs} runs! ${innings2.bowlerName} opens against ${openingPair}.`
-        : `2nd Innings underway! Target ${target} runs — ${innings2.bowlerName} to ${openingPair}.`;
+          ? `Chase ${target} runs${dlsLabel} in ${inn2Overs} overs! ${openingPair} face ${innings2.bowlerName}.`
+          : `Defend ${target - 1} runs${dlsLabel} in ${inn2Overs} overs! ${innings2.bowlerName} opens against ${openingPair}.`
+        : `2nd Innings underway! Target ${target} runs${dlsLabel} in ${inn2Overs} overs — ${innings2.bowlerName} to ${openingPair}.`;
 
     return {
       ...state,
       inningsNumber: 2,
+      totalOvers: inn2Overs,
       target,
+      dlsApplied: dlsNeeded,
+      dlsParScore: dlsNeeded ? dls.parScore : null,
       innings2,
       pendingBatterPopup: null,
       pendingOverPopup: null,
       pendingDayPopup: null,
       pendingMilestonePopup: null,
+      pendingDlsPopup: null,
       pvpTurnPhase: 'bowl_select',
       lastOutcome: null,
       lastCommentary: startMsg,
@@ -1604,6 +1938,7 @@ export const startSecondInnings = startNextInnings;
 export function simulateFullMatch(params: {
   format: MatchFormat;
   pitchCondition?: PitchCondition;
+  rainChance?: RainChance;
   difficulty: Difficulty;
   homeTeamId: string;
   awayTeamId: string;
@@ -1613,10 +1948,12 @@ export function simulateFullMatch(params: {
 }): MatchState {
   const rng = params.rng ?? Math.random;
   const pitchCondition: PitchCondition = params.pitchCondition ?? 'hard';
+  const rainChance: RainChance = params.rainChance ?? 0;
   let state = createInitialMatchState({
     mode: 'ai',
     format: params.format,
     pitchCondition,
+    rainChance,
     difficulty: params.difficulty,
     homeTeamId: params.homeTeamId,
     awayTeamId: params.awayTeamId,
@@ -1631,7 +1968,13 @@ export function simulateFullMatch(params: {
     const active = getActiveInnings(state);
     const striker = active.batters[active.strikerIndex];
     const bowlerStyle = getBowlingStyle(active.bowlerName);
-    const del = chooseAiDelivery(params.difficulty, rng, pitchCondition, bowlerStyle);
+    const del = chooseAiDelivery(
+      params.difficulty,
+      rng,
+      pitchCondition,
+      bowlerStyle,
+      state.weatherCondition ?? 'clear'
+    );
     const shot = chooseAiShot(params.difficulty, del.type, del.length, rng);
     const res = resolveDelivery({
       shot,
@@ -1643,6 +1986,7 @@ export function simulateFullMatch(params: {
       bowlerName: active.bowlerName,
       format: params.format,
       pitchCondition,
+      weatherCondition: state.weatherCondition ?? 'clear',
       rng,
     });
 
@@ -1653,6 +1997,9 @@ export function simulateFullMatch(params: {
     }
     if (state.pendingBatterPopup) {
       state = selectNextBatter(state, state.pendingBatterPopup.selectedBatterIndex);
+    }
+    if (state.pendingDlsPopup) {
+      state = dismissDlsPopup(state);
     }
     if (state.pendingOverPopup) {
       state = dismissOverPopup(state);

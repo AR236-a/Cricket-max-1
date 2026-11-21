@@ -8,6 +8,7 @@ import {
   MatchFormat,
   PitchCondition,
   Team,
+  WeatherCondition,
 } from '../game/types';
 
 export interface BallAnimTrigger {
@@ -22,6 +23,8 @@ interface StadiumCanvasProps {
   isPaused: boolean;
   format?: MatchFormat;
   pitchCondition?: PitchCondition;
+  weatherCondition?: WeatherCondition;
+  isRainDelay?: boolean;
   strikerHand?: BattingHand;
   bowlingSide?: BowlingSide;
   battingTeam: Team;
@@ -105,6 +108,8 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
   isPaused,
   format = 'limited',
   pitchCondition = 'hard',
+  weatherCondition = 'clear',
+  isRainDelay = false,
   strikerHand = 'right',
   bowlingSide = 'over',
   battingTeam,
@@ -118,6 +123,8 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
     isPaused,
     format,
     pitchCondition,
+    weatherCondition,
+    isRainDelay,
     strikerHand,
     bowlingSide,
     battingTeam,
@@ -129,6 +136,8 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
     isPaused,
     format,
     pitchCondition,
+    weatherCondition,
+    isRainDelay,
     strikerHand,
     bowlingSide,
     battingTeam,
@@ -158,7 +167,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
 
   useEffect(() => {
     bgDirtyRef.current = true;
-  }, [isPlaying, pitchCondition]);
+  }, [isPlaying, pitchCondition, weatherCondition]);
 
   const particlesRef = useRef<Particle[]>(
     Array.from({ length: 36 }, () => ({
@@ -223,7 +232,9 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       bgCanvas.height = Math.max(1, Math.floor(height * dpr));
       bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      // Night Sky + Emerald Horizon
+      // Night Sky + Emerald Horizon (adjusted for weather atmosphere)
+      const weatherMode = propsRef.current.weatherCondition;
+      const isGloomy = weatherMode === 'overcast' || weatherMode === 'drizzle';
       const bgGrad = bgCtx.createRadialGradient(
         width * 0.5,
         height * 0.25,
@@ -232,10 +243,10 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
         height * 0.55,
         Math.max(width, height) * 0.78
       );
-      bgGrad.addColorStop(0, '#0a1c3d');
-      bgGrad.addColorStop(0.5, '#061529');
-      bgGrad.addColorStop(0.85, '#07241a');
-      bgGrad.addColorStop(1, '#093418');
+      bgGrad.addColorStop(0, isGloomy ? '#0f172a' : '#0a1c3d');
+      bgGrad.addColorStop(0.5, isGloomy ? '#0a1324' : '#061529');
+      bgGrad.addColorStop(0.85, isGloomy ? '#0a1f1b' : '#07241a');
+      bgGrad.addColorStop(1, isGloomy ? '#0a2b18' : '#093418');
       bgCtx.fillStyle = bgGrad;
       bgCtx.fillRect(0, 0, width, height);
 
@@ -396,6 +407,8 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
         isPaused: paused,
         format: matchFormat,
         pitchCondition: pitchMode,
+        weatherCondition: weatherMode,
+        isRainDelay: rainDelayActive,
         battingTeam: batTeam,
         bowlingTeam: bowlTeam,
         onAnimationComplete: onComplete,
@@ -405,14 +418,23 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       const batJersey = isTestKit ? '#f8fafc' : batTeam.primaryColor;
 
       const anim = animStateRef.current;
-      const hasActiveMotion = anim.active || anim.trauma > 0 || anim.crowdExcitement > 0 || particlesRef.current.some((p) => p.active);
+      const hasActiveMotion =
+        !paused &&
+        (anim.active ||
+          anim.trauma > 0 ||
+          anim.crowdExcitement > 0 ||
+          weatherMode === 'drizzle' ||
+          weatherMode === 'windy' ||
+          rainDelayActive ||
+          particlesRef.current.some((p) => p.active));
 
       if (paused && !hasActiveMotion && !bgDirtyRef.current && drewPausedFrame) {
         return;
       }
 
-      // Throttle idle ambience to ~24fps so Playwright/UI stays silky-responsive on software rendering
-      if (!hasActiveMotion && now - lastDrawTime < 42) {
+      // Throttle idle ambience so compositor & software rendering stay silky-responsive
+      const idleInterval = !playing ? 180 : !anim.active && anim.trauma === 0 ? 75 : 0;
+      if (idleInterval > 0 && !bgDirtyRef.current && now - lastDrawTime < idleInterval) {
         return;
       }
       lastDrawTime = now;
@@ -434,10 +456,11 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       // Draw cached static stadium / sky
       ctx.drawImage(bgCanvas, 0, 0, width, height);
 
-      // Twinkling stars
+      // Twinkling stars (dimmed under overcast / drizzle clouds)
+      const starDim = weatherMode === 'drizzle' ? 0.2 : weatherMode === 'overcast' ? 0.35 : 1;
       for (let i = 0; i < stars.length; i++) {
         const s = stars[i];
-        const alpha = 0.35 + 0.55 * Math.abs(Math.sin(totalTime * s.speed + s.phase));
+        const alpha = (0.35 + 0.55 * Math.abs(Math.sin(totalTime * s.speed + s.phase))) * starDim;
         ctx.fillStyle = `rgba(226, 232, 240, ${alpha.toFixed(2)})`;
         ctx.fillRect(s.x * width, s.y * height * 0.72, s.r * 1.4, s.r * 1.4);
       }
@@ -599,12 +622,22 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
           const f = (tNorm - 0.2) / 0.25;
           const dryTurnBoost = pitchMode === 'dry' ? 1.55 : pitchMode === 'hard' ? 0.78 : 1.0;
           const greenSeamBoost = pitchMode === 'green' ? 1.48 : 1.0;
+          const weatherSwingBoost =
+            weatherMode === 'overcast'
+              ? 1.38
+              : weatherMode === 'drizzle'
+              ? 1.32
+              : weatherMode === 'windy'
+              ? 1.22
+              : weatherMode === 'humid'
+              ? 1.15
+              : 1.0;
           let lateralCurve = 0;
 
           if (deliveryType === 'swing') {
-            lateralCurve = Math.sin(f * Math.PI) * 18 * greenSeamBoost;
+            lateralCurve = Math.sin(f * Math.PI) * 18 * greenSeamBoost * weatherSwingBoost;
           } else if (deliveryType === 'seam') {
-            lateralCurve = f > 0.52 ? -11 * greenSeamBoost : 0;
+            lateralCurve = f > 0.52 ? -11 * greenSeamBoost * weatherSwingBoost : 0;
           } else if (deliveryType === 'spin' || deliveryType === 'off_spin') {
             lateralCurve = f > 0.56 ? (f - 0.56) * 34 * dryTurnBoost : 0;
           } else if (deliveryType === 'leg_spin') {
@@ -773,6 +806,48 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
         ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
       }
       ctx.globalAlpha = 1;
+
+      // Weather Atmosphere Overlay (visibility haze, wind streaks, or rain shower)
+      if (weatherMode === 'overcast' || weatherMode === 'humid' || weatherMode === 'drizzle' || rainDelayActive) {
+        ctx.fillStyle =
+          rainDelayActive
+            ? 'rgba(15, 23, 42, 0.34)'
+            : weatherMode === 'drizzle'
+            ? 'rgba(15, 23, 42, 0.24)'
+            : weatherMode === 'overcast'
+            ? 'rgba(30, 41, 59, 0.16)'
+            : 'rgba(148, 163, 184, 0.10)';
+        ctx.fillRect(0, 0, width, height);
+      }
+
+      if (weatherMode === 'windy') {
+        ctx.strokeStyle = 'rgba(186, 230, 253, 0.22)';
+        ctx.lineWidth = 1.2;
+        for (let i = 0; i < 14; i++) {
+          const sx = (((i * 173 + totalTime * 210) % (width + 120)) - 60);
+          const sy = ((i * 89) % height);
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(sx + 44, sy - 6);
+          ctx.stroke();
+        }
+      }
+
+      if (weatherMode === 'drizzle' || rainDelayActive) {
+        const dropCount = rainDelayActive ? 44 : 26;
+        ctx.strokeStyle = rainDelayActive
+          ? 'rgba(147, 197, 253, 0.52)'
+          : 'rgba(147, 197, 253, 0.34)';
+        ctx.lineWidth = rainDelayActive ? 1.5 : 1.1;
+        for (let i = 0; i < dropCount; i++) {
+          const rxPos = ((i * 97 + totalTime * 115) % (width + 60)) - 30;
+          const ryPos = ((i * 67 + totalTime * 420) % (height + 40)) - 20;
+          ctx.beginPath();
+          ctx.moveTo(rxPos, ryPos);
+          ctx.lineTo(rxPos - 7, ryPos + (rainDelayActive ? 18 : 12));
+          ctx.stroke();
+        }
+      }
 
       ctx.restore();
     };

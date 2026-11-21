@@ -5,6 +5,7 @@ import {
   Difficulty,
   MatchState,
   PitchCondition,
+  RainChance,
   StandingRow,
   TournamentFixture,
   TournamentPlayerStat,
@@ -223,6 +224,7 @@ export function createTournament(params: {
   userTeamId: string;
   difficulty: Difficulty;
   pitchCondition?: PitchCondition;
+  rainChance?: RainChance;
   oversPerDay?: 30 | 60 | 90;
   testCount?: 3 | 5;
 }): TournamentState {
@@ -231,6 +233,7 @@ export function createTournament(params: {
     userTeamId,
     difficulty,
     pitchCondition = 'hard',
+    rainChance = 0,
     oversPerDay = 90,
     testCount = 5,
   } = params;
@@ -280,6 +283,7 @@ export function createTournament(params: {
       title: 'ICC T20 World Cup',
       format: 'limited',
       pitchCondition,
+      rainChance,
       oversPerInningsOrDay: 20,
       userTeamId,
       difficulty,
@@ -311,6 +315,7 @@ export function createTournament(params: {
       title: 'ICC ODI World Cup',
       format: 'limited',
       pitchCondition,
+      rainChance,
       oversPerInningsOrDay: 50,
       userTeamId,
       difficulty,
@@ -342,6 +347,7 @@ export function createTournament(params: {
       title: 'IPL Championship',
       format: 'limited',
       pitchCondition,
+      rainChance,
       oversPerInningsOrDay: 20,
       userTeamId,
       difficulty,
@@ -382,6 +388,7 @@ export function createTournament(params: {
       title: 'The Ashes Cup',
       format: 'test',
       pitchCondition,
+      rainChance,
       oversPerInningsOrDay: oversPerDay,
       testMatchCount: testCount,
       userTeamId,
@@ -423,6 +430,7 @@ export function createTournament(params: {
     title: 'Border-Gavaskar Trophy',
     format: 'test',
     pitchCondition,
+    rainChance,
     oversPerInningsOrDay: oversPerDay,
     testMatchCount: testCount,
     userTeamId,
@@ -793,6 +801,7 @@ export function simulateTournamentFixture(
   let simMatch = simulateFullMatch({
     format: tournament.format,
     pitchCondition: tournament.pitchCondition,
+    rainChance: tournament.rainChance ?? 0,
     difficulty: tournament.difficulty,
     homeTeamId: fixture.homeTeamId,
     awayTeamId: fixture.awayTeamId,
