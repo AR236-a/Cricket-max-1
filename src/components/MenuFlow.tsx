@@ -108,7 +108,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-20 flex flex-col items-center overflow-y-auto p-4 sm:p-6 pt-16 sm:pt-6">
+    <div className="fixed inset-0 z-20 flex flex-col items-center overflow-y-auto p-4 sm:p-6 pt-16 sm:pt-6 land:p-3 land:pt-3">
       {screen !== 'menu' && (
         <button
           type="button"
@@ -119,7 +119,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             else if (screen === 'overs') onNavigate('teams');
             else if (screen === 'toss') onNavigate(isTournamentMatch ? 'tournamentHub' : 'overs');
           }}
-          className="fixed top-3 left-3 sm:top-5 sm:left-5 z-30 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#09132a]/95 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-300 transition-colors text-xs font-semibold tracking-wider whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
+          className="fixed top-3 left-3 sm:top-5 sm:left-5 land:static land:self-start land:mb-1.5 z-30 inline-flex items-center gap-2 px-3.5 py-2 land:px-3 land:py-1.5 rounded-lg bg-[#09132a]/95 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-300 transition-colors text-xs font-semibold tracking-wider whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
         >
           <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
           BACK
@@ -128,25 +128,25 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
 
       {/* MAIN MENU */}
       {screen === 'menu' && (
-        <main className="my-auto flex flex-col items-center text-center max-w-3xl w-full px-4">
-          <h1 className="font-display text-5xl sm:text-7xl md:text-[5.25rem] font-bold tracking-wider text-amber-400 title-glow select-none leading-none whitespace-nowrap">
+        <main className="my-auto flex flex-col items-center text-center max-w-3xl w-full px-4 land:px-2">
+          <h1 className="font-display text-5xl sm:text-7xl md:text-[5.25rem] land:text-4xl font-bold tracking-wider text-amber-400 title-glow select-none leading-none whitespace-nowrap">
             CRICKET MAX
           </h1>
-          <p className="mt-3 text-xs sm:text-base tracking-[0.28em] sm:tracking-[0.38em] uppercase text-cyan-400 font-semibold whitespace-nowrap">
+          <p className="mt-3 land:mt-1 text-xs sm:text-base land:text-[11px] tracking-[0.28em] sm:tracking-[0.38em] uppercase text-cyan-400 font-semibold whitespace-nowrap">
             Stadium Edition · Offline Ready
           </p>
 
-          <div className="mt-7 sm:mt-9 flex flex-col gap-3 w-full max-w-xs">
+          <div className="mt-7 sm:mt-9 land:mt-4 flex flex-col land:grid land:grid-cols-2 gap-3 land:gap-2 w-full max-w-xs land:max-w-xl">
             {savedMatch && onResumeSavedMatch && (
               <div
                 data-testid="resume-match-card"
-                className="flex items-stretch gap-1.5 w-full"
+                className="flex items-stretch gap-1.5 w-full land:col-span-2"
               >
                 <button
                   type="button"
                   data-testid="resume-match-btn"
                   onClick={onResumeSavedMatch}
-                  className="flex-1 min-w-0 flex items-center gap-2.5 py-3 px-4 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 text-left transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-cyan-400 shadow-[0_0_24px_rgba(250,204,21,0.28)]"
+                  className="flex-1 min-w-0 flex items-center gap-2.5 py-3 land:py-2 px-4 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 text-left transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-cyan-400 shadow-[0_0_24px_rgba(250,204,21,0.28)]"
                 >
                   <RotateCcw className="w-4 h-4 shrink-0" aria-hidden="true" />
                   <div className="min-w-0 flex-1">
@@ -179,7 +179,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
               type="button"
               data-start="true"
               onClick={onQuickStart}
-              className="inline-flex items-center justify-center gap-2.5 w-full py-3.5 px-6 rounded-lg bg-[#0d1936]/90 border border-amber-400/85 text-amber-300 hover:bg-amber-400 hover:text-slate-950 font-semibold tracking-widest uppercase text-sm transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-cyan-400"
+              className="inline-flex items-center justify-center gap-2.5 w-full py-3.5 land:py-2.5 px-6 land:px-4 rounded-lg bg-[#0d1936]/90 border border-amber-400/85 text-amber-300 hover:bg-amber-400 hover:text-slate-950 font-semibold tracking-widest uppercase text-sm land:text-xs transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-cyan-400"
             >
               <Play className="w-4 h-4 fill-current" aria-hidden="true" />
               {savedMatch ? 'New Match' : 'Start Match'}
@@ -188,7 +188,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             <button
               type="button"
               onClick={() => onNavigate('tournamentSelect')}
-              className="inline-flex items-center justify-center gap-2.5 w-full py-3.5 px-6 rounded-lg bg-[#0d1936]/90 border border-cyan-400/75 text-cyan-200 hover:bg-cyan-400 hover:text-slate-950 font-semibold tracking-widest uppercase text-sm transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-amber-400"
+              className="inline-flex items-center justify-center gap-2.5 w-full py-3.5 land:py-2.5 px-6 land:px-4 rounded-lg bg-[#0d1936]/90 border border-cyan-400/75 text-cyan-200 hover:bg-cyan-400 hover:text-slate-950 font-semibold tracking-widest uppercase text-sm land:text-xs transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-amber-400"
             >
               <Trophy className="w-4 h-4" aria-hidden="true" />
               Tournaments & Series
@@ -197,16 +197,18 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             <button
               type="button"
               onClick={() => onNavigate('rules')}
-              className="inline-flex items-center justify-center gap-2.5 w-full py-3.5 px-6 rounded-lg bg-[#0d1936]/90 border border-amber-400/70 text-amber-100 hover:border-amber-300 hover:bg-[#132248] font-semibold tracking-widest uppercase text-sm transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-cyan-400"
+              className="inline-flex items-center justify-center gap-2.5 w-full py-3.5 land:py-2.5 px-6 land:px-4 rounded-lg bg-[#0d1936]/90 border border-amber-400/70 text-amber-100 hover:border-amber-300 hover:bg-[#132248] font-semibold tracking-widest uppercase text-sm land:text-xs transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-cyan-400"
             >
               <ClipboardList className="w-4 h-4 text-cyan-300" aria-hidden="true" />
               How to Play
             </button>
 
-            <PWAInstallButton />
+            <div className="land:flex land:items-stretch">
+              <PWAInstallButton />
+            </div>
           </div>
 
-          <p className="mt-6 pb-2 text-[11px] sm:text-xs text-slate-400/85 tracking-wide">
+          <p className="mt-6 land:mt-3 pb-2 text-[11px] sm:text-xs text-slate-400/85 tracking-wide">
             Enter / Space to Start · Keys 1–8 for Shots · P to Pause
           </p>
         </main>
@@ -214,17 +216,17 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
 
       {/* SELECT MODE */}
       {screen === 'mode' && (
-        <main className="flex flex-col items-center w-full max-w-xl">
-          <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-wider text-amber-400 mb-5">
+        <main className="flex flex-col items-center w-full max-w-xl land:my-auto">
+          <h2 className="font-display text-4xl sm:text-5xl land:text-3xl font-bold tracking-wider text-amber-400 mb-5 land:mb-2.5">
             SELECT MODE
           </h2>
 
           {/* Match Format Selector */}
-          <div className="inline-flex items-center p-1 rounded-xl bg-[#081024]/95 border border-cyan-500/40 mb-6">
+          <div className="inline-flex items-center p-1 rounded-xl bg-[#081024]/95 border border-cyan-500/40 mb-6 land:mb-3">
             <button
               type="button"
               onClick={() => onSelectFormat('limited')}
-              className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase transition-colors cursor-pointer whitespace-nowrap ${
+              className={`px-4 py-2 land:py-1.5 rounded-lg text-xs font-semibold tracking-wider uppercase transition-colors cursor-pointer whitespace-nowrap ${
                 format === 'limited'
                   ? 'bg-cyan-400 text-slate-950'
                   : 'text-slate-300 hover:text-white'
@@ -235,7 +237,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             <button
               type="button"
               onClick={() => onSelectFormat('test')}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold tracking-wider uppercase transition-colors cursor-pointer whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 px-4 py-2 land:py-1.5 rounded-lg text-xs font-semibold tracking-wider uppercase transition-colors cursor-pointer whitespace-nowrap ${
                 format === 'test'
                   ? 'bg-amber-400 text-slate-950'
                   : 'text-slate-300 hover:text-white'
@@ -246,14 +248,14 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-md">
+          <div className="grid grid-cols-1 sm:grid-cols-2 land:grid-cols-2 gap-5 land:gap-3 w-full max-w-md">
             <button
               type="button"
               onClick={() => onSelectMode('pvp')}
-              className="flex flex-col items-center justify-center gap-4 p-7 rounded-xl bg-[#0b1530]/95 border border-cyan-500/40 hover:border-cyan-300 hover:bg-[#112047] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
+              className="flex flex-col items-center justify-center gap-4 land:gap-2 p-7 land:p-4 rounded-xl bg-[#0b1530]/95 border border-cyan-500/40 hover:border-cyan-300 hover:bg-[#112047] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
             >
-              <Users className="w-11 h-11 text-sky-400" aria-hidden="true" />
-              <span className="text-base font-semibold text-cyan-300 tracking-wide">
+              <Users className="w-11 h-11 land:w-8 land:h-8 text-sky-400" aria-hidden="true" />
+              <span className="text-base land:text-sm font-semibold text-cyan-300 tracking-wide">
                 Player vs Player
               </span>
             </button>
@@ -261,10 +263,10 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             <button
               type="button"
               onClick={() => onSelectMode('ai')}
-              className="flex flex-col items-center justify-center gap-4 p-7 rounded-xl bg-[#0b1530]/95 border border-cyan-500/40 hover:border-cyan-300 hover:bg-[#112047] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
+              className="flex flex-col items-center justify-center gap-4 land:gap-2 p-7 land:p-4 rounded-xl bg-[#0b1530]/95 border border-cyan-500/40 hover:border-cyan-300 hover:bg-[#112047] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
             >
-              <Bot className="w-11 h-11 text-amber-400" aria-hidden="true" />
-              <span className="text-base font-semibold text-cyan-300 tracking-wide">
+              <Bot className="w-11 h-11 land:w-8 land:h-8 text-amber-400" aria-hidden="true" />
+              <span className="text-base land:text-sm font-semibold text-cyan-300 tracking-wide">
                 Player vs AI
               </span>
             </button>
@@ -274,17 +276,17 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
 
       {/* SELECT DIFFICULTY */}
       {screen === 'difficulty' && (
-        <main className="flex flex-col items-center w-full max-w-2xl">
-          <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-wider text-amber-400 mb-8">
+        <main className="flex flex-col items-center w-full max-w-2xl land:my-auto">
+          <h2 className="font-display text-4xl sm:text-5xl land:text-3xl font-bold tracking-wider text-amber-400 mb-8 land:mb-3">
             SELECT DIFFICULTY
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-3 land:grid-cols-3 gap-5 land:gap-3 w-full">
             <button
               type="button"
               onClick={() => onSelectDifficulty('easy')}
-              className="flex flex-col items-center text-center gap-3 p-6 rounded-xl bg-[#0b1530]/95 border border-emerald-500/45 hover:border-emerald-300 hover:bg-[#10223f] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
+              className="flex flex-col items-center text-center gap-3 land:gap-1.5 p-6 land:p-3.5 rounded-xl bg-[#0b1530]/95 border border-emerald-500/45 hover:border-emerald-300 hover:bg-[#10223f] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
             >
-              <span className="w-9 h-9 rounded-full bg-emerald-500 border-2 border-emerald-200/60" aria-hidden="true" />
+              <span className="w-9 h-9 land:w-7 land:h-7 rounded-full bg-emerald-500 border-2 border-emerald-200/60" aria-hidden="true" />
               <span className="font-semibold tracking-wider text-emerald-400 text-base">EASY</span>
               <span className="text-xs text-slate-400 leading-relaxed">
                 Relaxed AI
@@ -296,9 +298,9 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             <button
               type="button"
               onClick={() => onSelectDifficulty('medium')}
-              className="flex flex-col items-center text-center gap-3 p-6 rounded-xl bg-[#0b1530]/95 border border-amber-500/45 hover:border-amber-300 hover:bg-[#10223f] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
+              className="flex flex-col items-center text-center gap-3 land:gap-1.5 p-6 land:p-3.5 rounded-xl bg-[#0b1530]/95 border border-amber-500/45 hover:border-amber-300 hover:bg-[#10223f] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
             >
-              <span className="w-9 h-9 rounded-full bg-amber-400 border-2 border-amber-100/60" aria-hidden="true" />
+              <span className="w-9 h-9 land:w-7 land:h-7 rounded-full bg-amber-400 border-2 border-amber-100/60" aria-hidden="true" />
               <span className="font-semibold tracking-wider text-amber-400 text-base">MEDIUM</span>
               <span className="text-xs text-slate-400 leading-relaxed">
                 Balanced AI
@@ -310,9 +312,9 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             <button
               type="button"
               onClick={() => onSelectDifficulty('hard')}
-              className="flex flex-col items-center text-center gap-3 p-6 rounded-xl bg-[#0b1530]/95 border border-rose-500/45 hover:border-rose-300 hover:bg-[#10223f] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
+              className="flex flex-col items-center text-center gap-3 land:gap-1.5 p-6 land:p-3.5 rounded-xl bg-[#0b1530]/95 border border-rose-500/45 hover:border-rose-300 hover:bg-[#10223f] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
             >
-              <span className="w-9 h-9 rounded-full bg-rose-500 border-2 border-rose-200/60" aria-hidden="true" />
+              <span className="w-9 h-9 land:w-7 land:h-7 rounded-full bg-rose-500 border-2 border-rose-200/60" aria-hidden="true" />
               <span className="font-semibold tracking-wider text-rose-400 text-base">HARD</span>
               <span className="text-xs text-slate-400 leading-relaxed">
                 Smart AI
@@ -326,13 +328,13 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
 
       {/* SELECT TEAMS */}
       {screen === 'teams' && (
-        <main className="flex flex-col items-center w-full max-w-xl max-h-[88vh]">
-          <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-wider text-amber-400 mb-5">
+        <main className="flex flex-col items-center w-full max-w-xl land:max-w-3xl max-h-[88vh] land:max-h-none land:pb-2">
+          <h2 className="font-display text-4xl sm:text-5xl land:text-3xl font-bold tracking-wider text-amber-400 mb-5 land:mb-2">
             SELECT TEAMS
           </h2>
 
           {/* Matchup Bar */}
-          <div className="w-full flex items-center justify-between gap-3 px-5 py-3 rounded-xl bg-[#0b1530]/95 border border-cyan-500/35 mb-4">
+          <div className="w-full flex items-center justify-between gap-3 px-5 land:px-3 py-3 land:py-1.5 rounded-xl bg-[#0b1530]/95 border border-cyan-500/35 mb-4 land:mb-2">
             <button
               type="button"
               onClick={() => homeTeam && onClearTeamSlot('home')}
@@ -367,12 +369,12 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
           </div>
 
           {/* League Segmented Toggle + Squads Toggle */}
-          <div className="flex flex-wrap items-center justify-center gap-3 mb-4">
+          <div className="flex flex-wrap items-center justify-center gap-3 land:gap-2 mb-4 land:mb-2">
             <div className="inline-flex items-center p-1 rounded-lg bg-[#081024] border border-cyan-500/35">
               <button
                 type="button"
                 onClick={() => setLeague('international')}
-                className={`px-4 py-1.5 rounded-md text-xs font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer ${
+                className={`px-4 py-1.5 land:py-1 rounded-md text-xs font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer ${
                   league === 'international'
                     ? 'bg-cyan-400 text-slate-950'
                     : 'text-slate-300 hover:text-white'
@@ -383,7 +385,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
               <button
                 type="button"
                 onClick={() => setLeague('ipl')}
-                className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-4 py-1.5 land:py-1 rounded-md text-xs font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer ${
                   league === 'ipl'
                     ? 'bg-cyan-400 text-slate-950'
                     : 'text-slate-300 hover:text-white'
@@ -397,7 +399,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             <button
               type="button"
               onClick={() => setShowSquads((s) => !s)}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border text-xs font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 land:py-1.5 rounded-lg border text-xs font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer ${
                 showSquads
                   ? 'bg-amber-400 text-slate-950 border-amber-300'
                   : 'bg-[#0b1530]/95 border-cyan-500/35 text-cyan-300 hover:border-cyan-300'
@@ -409,7 +411,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
           </div>
 
           {showSquads ? (
-            <div className="w-full space-y-3 overflow-y-auto pr-1 max-h-[46vh]">
+            <div className="w-full space-y-3 overflow-y-auto pr-1 max-h-[46vh] land:max-h-none land:overflow-visible">
               {league === 'international' && format === 'limited' && (
                 <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#081024] border border-cyan-500/30 text-xs">
                   <span className="text-slate-300 font-medium">International Format Squad:</span>
@@ -475,7 +477,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
               </div>
             </div>
           ) : (
-          <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2.5 overflow-y-auto pr-1 max-h-[46vh]">
+          <div className="w-full grid grid-cols-1 sm:grid-cols-2 land:grid-cols-3 gap-2.5 land:gap-2 overflow-y-auto pr-1 max-h-[46vh] land:max-h-none land:overflow-visible">
             {leagueTeams.map((team) => {
               const isHome = homeTeamId === team.id;
               const isAway = awayTeamId === team.id;
@@ -510,7 +512,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             type="button"
             disabled={!homeTeamId || !awayTeamId}
             onClick={() => onNavigate('overs')}
-            className={`mt-5 w-full py-3 px-6 rounded-lg font-semibold tracking-widest uppercase text-xs transition-colors border whitespace-nowrap ${
+            className={`mt-5 land:mt-3 w-full py-3 land:py-2.5 px-6 rounded-lg font-semibold tracking-widest uppercase text-xs transition-colors border whitespace-nowrap ${
               homeTeamId && awayTeamId
                 ? 'bg-amber-400 text-slate-950 border-amber-300 hover:bg-amber-300 cursor-pointer'
                 : 'bg-[#0b1530]/70 text-amber-400/50 border-amber-500/30 cursor-not-allowed'
@@ -525,19 +527,19 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
 
       {/* SELECT OVERS / OVERS PER DAY & PITCH CONDITION */}
       {screen === 'overs' && (
-        <main className="flex flex-col items-center w-full max-w-2xl">
-          <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-wider text-amber-400 mb-2 text-center">
+        <main className="flex flex-col items-center w-full max-w-2xl land:my-auto land:pb-2">
+          <h2 className="font-display text-4xl sm:text-5xl land:text-3xl font-bold tracking-wider text-amber-400 mb-2 land:mb-1 text-center">
             {format === 'test' ? 'SELECT OVERS PER DAY' : 'SELECT OVERS'}
           </h2>
-          <p className="text-xs text-cyan-300 mb-5 tracking-wide text-center">
+          <p className="text-xs text-cyan-300 mb-5 land:mb-2.5 tracking-wide text-center">
             {format === 'test'
               ? '5-Day Test Match · 4 Innings · Unlimited Overs per Innings'
               : 'Choose Pitch Condition & Limited-Overs Length'}
           </p>
 
           {/* Pitch Condition Selector */}
-          <div className="w-full max-w-xl mb-6">
-            <div className="text-[11px] font-semibold tracking-[0.2em] text-slate-300 uppercase mb-2 text-center">
+          <div className="w-full max-w-xl mb-6 land:mb-3">
+            <div className="text-[11px] font-semibold tracking-[0.2em] text-slate-300 uppercase mb-2 land:mb-1.5 text-center">
               Pitch Condition
             </div>
             <div className="grid grid-cols-3 gap-2.5">
@@ -549,7 +551,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
                     key={pitch}
                     type="button"
                     onClick={() => onSelectPitch(pitch)}
-                    className={`flex flex-col items-center text-center px-3 py-2.5 rounded-xl border transition-colors cursor-pointer ${
+                    className={`flex flex-col items-center text-center px-3 py-2.5 land:py-1.5 rounded-xl border transition-colors cursor-pointer ${
                       selected
                         ? pitch === 'green'
                           ? 'bg-emerald-950/70 border-emerald-400 text-white'
@@ -559,52 +561,52 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
                         : 'bg-[#0b1530]/95 border-cyan-500/30 hover:border-cyan-300 text-slate-300'
                     }`}
                   >
-                    <span className="font-display text-lg font-bold tracking-wider">
+                    <span className="font-display text-lg land:text-base font-bold tracking-wider">
                       {meta.label}
                     </span>
-                    <span className="text-[11px] text-cyan-200/90 font-medium">
+                    <span className="text-[11px] land:text-[10px] text-cyan-200/90 font-medium">
                       {meta.shortLabel}
                     </span>
                   </button>
                 );
               })}
             </div>
-            <p className="mt-2 text-[11px] text-slate-300 text-center">
+            <p className="mt-2 land:mt-1 text-[11px] text-slate-300 text-center">
               {PITCH_META[pitchCondition].description}
             </p>
           </div>
 
           {format === 'test' ? (
-            <div className="grid grid-cols-3 gap-4 w-full max-w-lg">
+            <div className="grid grid-cols-3 gap-4 land:gap-2.5 w-full max-w-lg">
               {[30, 60, 90].map((ov) => (
                 <button
                   key={ov}
                   type="button"
                   onClick={() => onSelectOvers(ov)}
-                  className="flex flex-col items-center justify-center py-6 px-4 rounded-xl bg-[#0b1530]/95 border border-cyan-500/40 hover:border-amber-400 hover:bg-[#112047] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
+                  className="flex flex-col items-center justify-center py-6 land:py-3 px-4 rounded-xl bg-[#0b1530]/95 border border-cyan-500/40 hover:border-amber-400 hover:bg-[#112047] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
                 >
-                  <span className="font-display font-mono-num text-4xl font-bold text-amber-400">
+                  <span className="font-display font-mono-num text-4xl land:text-3xl font-bold text-amber-400">
                     {ov}
                   </span>
-                  <span className="mt-1.5 text-[11px] tracking-[0.18em] text-slate-300 uppercase whitespace-nowrap">
+                  <span className="mt-1.5 land:mt-0.5 text-[11px] tracking-[0.18em] text-slate-300 uppercase whitespace-nowrap">
                     OVERS / DAY
                   </span>
                 </button>
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5 w-full max-w-xl">
+            <div className="grid grid-cols-2 sm:grid-cols-5 land:grid-cols-5 gap-3.5 land:gap-2.5 w-full max-w-xl">
               {[5, 10, 20, 30, 50].map((ov) => (
                 <button
                   key={ov}
                   type="button"
                   onClick={() => onSelectOvers(ov)}
-                  className="flex flex-col items-center justify-center py-6 px-4 rounded-xl bg-[#0b1530]/95 border border-cyan-500/40 hover:border-amber-400 hover:bg-[#112047] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
+                  className="flex flex-col items-center justify-center py-6 land:py-3 px-4 land:px-2 rounded-xl bg-[#0b1530]/95 border border-cyan-500/40 hover:border-amber-400 hover:bg-[#112047] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
                 >
-                  <span className="font-display font-mono-num text-4xl font-bold text-amber-400">
+                  <span className="font-display font-mono-num text-4xl land:text-3xl font-bold text-amber-400">
                     {ov}
                   </span>
-                  <span className="mt-1.5 text-[11px] tracking-[0.22em] text-slate-400 uppercase">
+                  <span className="mt-1.5 land:mt-0.5 text-[11px] tracking-[0.22em] text-slate-400 uppercase">
                     OVERS
                   </span>
                 </button>
@@ -616,17 +618,17 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
 
       {/* TOSS TIME */}
       {screen === 'toss' && (
-        <main className="flex flex-col items-center text-center w-full max-w-lg">
-          <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-wider text-amber-400 mb-6">
+        <main className="flex flex-col items-center text-center w-full max-w-lg land:my-auto">
+          <h2 className="font-display text-4xl sm:text-5xl land:text-3xl font-bold tracking-wider text-amber-400 mb-6 land:mb-3">
             TOSS TIME
           </h2>
 
           <div
-            className={`w-24 h-24 rounded-full bg-gradient-to-br from-yellow-300 via-amber-400 to-amber-600 border-4 border-yellow-200/80 shadow-[0_0_30px_rgba(250,204,21,0.35)] flex items-center justify-center mb-5 ${
+            className={`w-24 h-24 land:w-16 land:h-16 rounded-full bg-gradient-to-br from-yellow-300 via-amber-400 to-amber-600 border-4 border-yellow-200/80 shadow-[0_0_30px_rgba(250,204,21,0.35)] flex items-center justify-center mb-5 land:mb-3 ${
               tossFlipping ? 'animate-coin-flip' : ''
             }`}
           >
-            <Coins className="w-10 h-10 text-amber-950" aria-hidden="true" />
+            <Coins className="w-10 h-10 land:w-7 land:h-7 text-amber-950" aria-hidden="true" />
           </div>
 
           <p className="text-xs tracking-[0.25em] text-slate-300 uppercase mb-5">
@@ -712,11 +714,11 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
 
       {/* HOW TO PLAY */}
       {screen === 'rules' && (
-        <main className="flex flex-col items-center w-full max-w-lg max-h-[86vh]">
-          <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-wider text-amber-400 mb-6">
+        <main className="flex flex-col items-center w-full max-w-lg land:max-w-2xl max-h-[86vh] land:max-h-none land:pb-2">
+          <h2 className="font-display text-4xl sm:text-5xl land:text-3xl font-bold tracking-wider text-amber-400 mb-6 land:mb-3">
             HOW TO PLAY
           </h2>
-          <div className="w-full rounded-xl bg-[#0b1530]/95 border border-cyan-500/35 p-6 overflow-y-auto space-y-5 text-sm text-slate-200">
+          <div className="w-full rounded-xl bg-[#0b1530]/95 border border-cyan-500/35 p-6 land:p-4 overflow-y-auto land:overflow-visible space-y-5 land:space-y-3 text-sm text-slate-200">
             <section>
               <h3 className="font-display text-lg tracking-wider text-amber-400 mb-2">BATTING</h3>
               <ul className="space-y-1.5 text-slate-300 text-xs sm:text-sm">

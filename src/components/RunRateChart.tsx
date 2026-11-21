@@ -152,7 +152,7 @@ export const RunRateChart: React.FC<RunRateChartProps> = ({
     <div
       data-testid={isModal ? 'd3-run-rate-chart-expanded' : 'd3-run-rate-chart'}
       className={`pointer-events-auto rounded-xl bg-[#060f24]/92 border border-cyan-500/40 shadow-[0_8px_28px_rgba(2,6,23,0.75)] ${
-        isModal ? 'w-full max-w-lg p-4' : 'w-[274px] p-2.5'
+        isModal ? 'w-full max-w-lg max-h-[92dvh] overflow-y-auto p-4 land:p-3' : 'w-[274px] p-2.5'
       }`}
     >
       {/* Chart Header */}
@@ -364,32 +364,32 @@ export const RunRateChart: React.FC<RunRateChartProps> = ({
 
   return (
     <>
-      {/* Desktop / Tablet docked widget (top-left, clear of the oval pitch) */}
-      <div className="hidden md:block absolute left-3 top-12 z-20">
+      {/* Desktop / Tablet docked widget (top-left, clear of the oval pitch; hidden on short mobile landscape) */}
+      <div className="hidden md:block land:!hidden absolute left-3 top-12 z-20">
         {renderChartBody(false)}
       </div>
 
-      {/* Mobile compact toggle button */}
-      <div className="md:hidden absolute left-3 top-12 z-20 pointer-events-auto">
+      {/* Mobile & Landscape Phone compact toggle button */}
+      <div className="md:hidden land:!block absolute left-3 top-12 land:left-2.5 land:top-9 z-20 pointer-events-auto">
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#060f24]/90 border border-cyan-500/40 text-cyan-200 text-[11px] font-mono-num font-semibold cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 land:px-2 land:py-0.5 rounded-md bg-[#060f24]/90 border border-cyan-500/40 text-cyan-200 text-[11px] land:text-[10px] font-mono-num font-semibold cursor-pointer"
         >
-          <BarChart3 className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />
+          <BarChart3 className="w-3.5 h-3.5 land:w-3 land:h-3 text-cyan-300" aria-hidden="true" />
           {isChase && runsNeeded !== null
             ? `Need ${runsNeeded} in ${ballsRemaining}b`
             : `Proj ${predictedTotal}`}
         </button>
       </div>
 
-      {/* Mobile expanded D3 modal */}
+      {/* Mobile / Landscape Phone expanded D3 modal */}
       {mobileOpen && (
         <div
           role="dialog"
           aria-modal="true"
           aria-label="Run rate and predicted total chart"
-          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/85 flex items-center justify-center p-4 md:hidden"
+          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/85 flex items-center justify-center p-4 land:p-2 md:hidden land:!flex"
         >
           {renderChartBody(true)}
         </div>

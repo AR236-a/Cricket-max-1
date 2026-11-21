@@ -17,7 +17,7 @@ export const TrophyLiftIllustration: React.FC<TrophyLiftIllustrationProps> = ({ 
   return (
     <svg
       viewBox="0 0 360 190"
-      className="w-full max-w-[340px] h-auto mx-auto drop-shadow-[0_8px_24px_rgba(250,204,21,0.22)]"
+      className="w-full max-w-[340px] land:max-h-[140px] h-auto mx-auto drop-shadow-[0_8px_24px_rgba(250,204,21,0.22)]"
       role="img"
       aria-label={`${team.name} players lifting the championship trophy`}
     >
@@ -147,8 +147,8 @@ export const TrophyCelebration: React.FC<TrophyCelebrationProps> = ({
   const cardContent = (
     <div
       data-testid={asModal ? 'trophy-ceremony-modal' : 'trophy-celebration-card'}
-      className={`rounded-xl bg-[#0b1530]/98 border-2 border-amber-400/80 p-4 sm:p-5 shadow-[0_0_32px_rgba(250,204,21,0.2)] space-y-3.5 ${
-        asModal ? 'w-full max-w-2xl max-h-[90vh] overflow-y-auto' : 'w-full'
+      className={`rounded-xl bg-[#0b1530]/98 border-2 border-amber-400/80 p-4 sm:p-5 land:p-3.5 shadow-[0_0_32px_rgba(250,204,21,0.2)] space-y-3.5 land:space-y-2.5 ${
+        asModal ? 'w-full max-w-2xl max-h-[90vh] land:max-h-[92dvh] overflow-y-auto' : 'w-full'
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -284,7 +284,7 @@ export const TrophyCelebration: React.FC<TrophyCelebrationProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label="Championship Trophy Presentation"
-      className="fixed inset-0 z-40 bg-[#020612]/88 flex items-center justify-center p-4"
+      className="fixed inset-0 z-40 bg-[#020612]/88 flex items-center justify-center p-4 land:p-2"
     >
       {cardContent}
     </div>

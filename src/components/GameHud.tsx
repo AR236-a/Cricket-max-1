@@ -195,21 +195,21 @@ export const GameHud: React.FC<GameHudProps> = ({
   return (
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between">
       {/* TOP SCOREBOARD HUD */}
-      <header className="pointer-events-auto w-full bg-[#060f24]/92 border-b border-cyan-500/35 px-3 sm:px-6 py-2">
+      <header className="pointer-events-auto w-full bg-[#060f24]/92 border-b border-cyan-500/35 px-3 sm:px-6 land:px-3 py-2 land:py-1">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
             {/* Left: Batting Team Score */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <TeamBadge team={batTeam} size="sm" />
               <div className="flex items-baseline gap-1.5 sm:gap-2.5">
-                <span className="hidden sm:inline text-xs font-semibold tracking-wider text-slate-300 uppercase">
+                <span className="hidden sm:inline land:inline text-xs land:text-[11px] font-semibold tracking-wider text-slate-300 uppercase">
                   {batTeam.code}
                 </span>
-                <span className="font-display font-mono-num text-2xl sm:text-3xl font-bold text-amber-400 leading-none whitespace-nowrap">
+                <span className="font-display font-mono-num text-2xl sm:text-3xl land:text-xl font-bold text-amber-400 leading-none whitespace-nowrap">
                   {active.runs}/{active.wickets}
                 </span>
                 <span
-                  className={`text-[11px] text-slate-400 font-mono-num whitespace-nowrap ${
+                  className={`text-[11px] text-slate-400 font-mono-num whitespace-nowrap land:hidden ${
                     isTest ? 'inline' : 'hidden md:inline'
                   }`}
                 >
@@ -218,24 +218,24 @@ export const GameHud: React.FC<GameHudProps> = ({
               </div>
             </div>
 
-            {/* Center: Overs & Run Rate / Test Day + Pitch (Desktop / Tablet) */}
-            <div className="hidden sm:flex flex-col items-center text-center shrink-0">
+            {/* Center: Overs & Run Rate / Test Day + Pitch (Desktop / Tablet / Mobile Landscape) */}
+            <div className="hidden sm:flex land:flex flex-col items-center text-center shrink-0 min-w-0">
               {isTest ? (
                 <>
-                  <div className="font-mono-num text-base font-bold text-cyan-300 tracking-wide whitespace-nowrap">
+                  <div className="font-mono-num text-base land:text-xs font-bold text-cyan-300 tracking-wide whitespace-nowrap">
                     Day {match.currentDay}/5 · {formatOvers(active.ballsBowled)} ov
                   </div>
-                  <div className="text-[11px] font-mono-num text-slate-300 whitespace-nowrap">
+                  <div className="text-[11px] land:text-[10px] font-mono-num text-slate-300 whitespace-nowrap">
                     Today {formatOvers(match.ballsToday)}/{match.oversPerDay} · RR: {rr} ·{' '}
                     {PITCH_META[match.pitchCondition ?? 'hard'].label} Pitch
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="font-mono-num text-base font-bold text-cyan-300 tracking-wide whitespace-nowrap">
+                  <div className="font-mono-num text-base land:text-xs font-bold text-cyan-300 tracking-wide whitespace-nowrap">
                     {formatOvers(active.ballsBowled)} / {match.totalOvers}
                   </div>
-                  <div className="text-[11px] font-mono-num text-slate-400 whitespace-nowrap">
+                  <div className="text-[11px] land:text-[10px] font-mono-num text-slate-400 whitespace-nowrap">
                     RR: {rr}
                     {rrr ? ` · RRR: ${rrr}` : ''} · {PITCH_META[match.pitchCondition ?? 'hard'].label} Pitch
                   </div>
@@ -247,9 +247,9 @@ export const GameHud: React.FC<GameHudProps> = ({
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <TeamBadge team={bowlTeam} size="sm" />
-                <div className="text-right hidden sm:block">
-                  <div className="text-xs font-semibold text-slate-300">{bowlTeam.code}</div>
-                  <div className="text-xs font-mono-num text-amber-300 whitespace-nowrap">
+                <div className="text-right hidden sm:block land:block">
+                  <div className="text-xs land:text-[10px] font-semibold text-slate-300 leading-tight">{bowlTeam.code}</div>
+                  <div className="text-xs land:text-[10px] font-mono-num text-amber-300 whitespace-nowrap leading-tight">
                     {isTest
                       ? testLeadText
                       : isChase && runsNeeded !== null && ballsRemaining !== null
@@ -268,9 +268,9 @@ export const GameHud: React.FC<GameHudProps> = ({
                     e.currentTarget.blur();
                     setShowScorecard((s) => !s);
                   }}
-                  className="w-8 h-8 rounded-md bg-[#0d1936] border border-cyan-500/35 hover:border-cyan-300 flex items-center justify-center text-cyan-200 cursor-pointer"
+                  className="w-8 h-8 land:w-7 land:h-7 rounded-md bg-[#0d1936] border border-cyan-500/35 hover:border-cyan-300 flex items-center justify-center text-cyan-200 cursor-pointer"
                 >
-                  <Users className="w-4 h-4" />
+                  <Users className="w-4 h-4 land:w-3.5 land:h-3.5" />
                 </button>
                 <button
                   type="button"
@@ -280,9 +280,9 @@ export const GameHud: React.FC<GameHudProps> = ({
                     e.currentTarget.blur();
                     onToggleMute();
                   }}
-                  className="w-8 h-8 rounded-md bg-[#0d1936] border border-cyan-500/35 hover:border-cyan-300 flex items-center justify-center text-cyan-200 cursor-pointer"
+                  className="w-8 h-8 land:w-7 land:h-7 rounded-md bg-[#0d1936] border border-cyan-500/35 hover:border-cyan-300 flex items-center justify-center text-cyan-200 cursor-pointer"
                 >
-                  {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                  {muted ? <VolumeX className="w-4 h-4 land:w-3.5 land:h-3.5" /> : <Volume2 className="w-4 h-4 land:w-3.5 land:h-3.5" />}
                 </button>
                 <button
                   type="button"
@@ -292,18 +292,18 @@ export const GameHud: React.FC<GameHudProps> = ({
                     e.currentTarget.blur();
                     onTogglePause();
                   }}
-                  className="w-8 h-8 rounded-md bg-[#0d1936] border border-cyan-500/35 hover:border-amber-300 flex items-center justify-center text-amber-300 cursor-pointer"
+                  className="w-8 h-8 land:w-7 land:h-7 rounded-md bg-[#0d1936] border border-cyan-500/35 hover:border-amber-300 flex items-center justify-center text-amber-300 cursor-pointer"
                 >
-                  <Pause className="w-4 h-4" />
+                  <Pause className="w-4 h-4 land:w-3.5 land:h-3.5" />
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Mobile Secondary Strip: Day / Overs / RR / Lead or Target (prevents score/day collision) */}
+          {/* Mobile Portrait Secondary Strip (hidden in mobile landscape where center row fits cleanly) */}
           <div
             data-testid="mobile-match-strip"
-            className="sm:hidden mt-1.5 pt-1.5 border-t border-cyan-500/20 flex items-center justify-between gap-2 text-[11px] font-mono-num"
+            className="sm:hidden land:!hidden mt-1.5 pt-1.5 border-t border-cyan-500/20 flex items-center justify-between gap-2 text-[11px] font-mono-num"
           >
             {isTest ? (
               <>
@@ -338,9 +338,9 @@ export const GameHud: React.FC<GameHudProps> = ({
       </header>
 
       {/* OVER BALL TRACKER & ON-FIELD BATTER CARDS */}
-      <div className="relative flex-1 w-full">
+      <div className="relative flex-1 w-full min-h-0">
         {/* Top Row: 6-Ball Over Tracker + Declare + Bowler Chip */}
-        <div className="w-full px-3 sm:px-4 pt-2 flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-2 gap-y-1.5">
+        <div className="w-full px-3 sm:px-4 land:px-2.5 pt-2 land:pt-1 flex flex-wrap sm:flex-nowrap land:flex-nowrap items-center justify-between gap-x-2 gap-y-1.5">
           <div
             aria-label="Current over balls"
             className="flex items-center gap-1 sm:gap-1.5 shrink-0"
@@ -353,7 +353,7 @@ export const GameHud: React.FC<GameHudProps> = ({
               return (
                 <span
                   key={idx}
-                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full border flex items-center justify-center text-[11px] sm:text-xs font-mono-num font-bold ${
+                  className={`w-6 h-6 sm:w-7 sm:h-7 land:w-5 land:h-5 rounded-full border flex items-center justify-center text-[11px] sm:text-xs land:text-[10px] font-mono-num font-bold ${
                     !sym
                       ? 'border-slate-500/45 text-slate-500 bg-[#060f24]/60'
                       : isW
@@ -371,12 +371,12 @@ export const GameHud: React.FC<GameHudProps> = ({
             })}
           </div>
 
-          <div className="flex items-center gap-2 min-w-0 max-w-full ml-auto">
+          <div className="flex items-center gap-2 land:gap-1.5 min-w-0 max-w-full ml-auto">
             {canDeclare && (
               <button
                 type="button"
                 onClick={onDeclareInnings}
-                className="pointer-events-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-400/20 border border-amber-400 text-amber-300 hover:bg-amber-400 hover:text-slate-950 text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="pointer-events-auto inline-flex items-center gap-1 px-2.5 py-1 land:px-2 land:py-0.5 rounded-md bg-amber-400/20 border border-amber-400 text-amber-300 hover:bg-amber-400 hover:text-slate-950 text-[11px] land:text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 <Flag className="w-3 h-3" aria-hidden="true" />
                 Declare
@@ -387,20 +387,20 @@ export const GameHud: React.FC<GameHudProps> = ({
                 type="button"
                 data-testid="opening-bowler-change-btn"
                 onClick={() => setShowOpeningBowlerPicker(true)}
-                className="pointer-events-auto px-2 py-1 rounded-md bg-cyan-500/20 border border-cyan-400/70 text-cyan-200 hover:bg-cyan-400 hover:text-slate-950 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="pointer-events-auto px-2 py-1 land:py-0.5 rounded-md bg-cyan-500/20 border border-cyan-400/70 text-cyan-200 hover:bg-cyan-400 hover:text-slate-950 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 Change
               </button>
             )}
             <div
-              className={`px-2.5 sm:px-3 py-1 rounded-md bg-[#060f24]/85 border border-cyan-500/30 text-[11px] sm:text-xs text-slate-200 font-mono-num flex items-center gap-1.5 min-w-0 ${
-                canDeclare || canSwapOpeningBowler ? '' : 'max-w-[162px] sm:max-w-none'
+              className={`px-2.5 sm:px-3 land:px-2 py-1 land:py-0.5 rounded-md bg-[#060f24]/85 border border-cyan-500/30 text-[11px] sm:text-xs land:text-[10px] text-slate-200 font-mono-num flex items-center gap-1.5 min-w-0 ${
+                canDeclare || canSwapOpeningBowler ? '' : 'max-w-[162px] sm:max-w-none land:max-w-none'
               }`}
             >
               <span className="hidden sm:inline shrink-0">Bowler: </span>
               <span className="text-cyan-300 font-semibold truncate">{active.bowlerName}</span>
               <span
-                className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${
+                className={`px-1.5 py-0.5 land:py-0 rounded text-[9px] font-bold uppercase shrink-0 ${
                   activeBowlerStyle === 'spin'
                     ? 'bg-purple-500/25 text-purple-200 border border-purple-400/50'
                     : 'bg-amber-500/25 text-amber-200 border border-amber-400/50'
@@ -423,10 +423,10 @@ export const GameHud: React.FC<GameHudProps> = ({
           />
         )}
 
-        {/* Striker & Non-Striker Cards (Left & Right flanks) */}
-        <div className="hidden sm:flex absolute left-3 top-[64%] -translate-y-1/2 items-center gap-2 px-3 py-2 rounded-lg bg-[#060f24]/90 border border-cyan-500/35">
+        {/* Striker & Non-Striker Cards (Left & Right flanks — tucked down cleanly in mobile landscape) */}
+        <div className="hidden sm:flex land:flex absolute left-3 land:left-2.5 top-[64%] land:top-auto land:bottom-1.5 -translate-y-1/2 land:translate-y-0 items-center gap-2 land:gap-1.5 px-3 land:px-2 py-2 land:py-1 rounded-lg bg-[#060f24]/90 border border-cyan-500/35 max-w-[38vw]">
           <span
-            className={`px-1.5 py-0.5 rounded text-[9px] font-mono-num font-bold ${
+            className={`px-1.5 py-0.5 rounded text-[9px] font-mono-num font-bold shrink-0 ${
               strikerHand === 'left'
                 ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40'
                 : 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/40'
@@ -434,15 +434,15 @@ export const GameHud: React.FC<GameHudProps> = ({
           >
             {strikerHand === 'left' ? 'LHB' : 'RHB'}
           </span>
-          <span className="text-xs font-semibold text-white">{striker?.name}*</span>
-          <span className="font-mono-num text-xs font-bold text-amber-400">
+          <span className="text-xs land:text-[11px] font-semibold text-white truncate">{striker?.name}*</span>
+          <span className="font-mono-num text-xs land:text-[11px] font-bold text-amber-400 shrink-0">
             {striker?.runs ?? 0}({striker?.balls ?? 0})
           </span>
         </div>
 
-        <div className="hidden sm:flex absolute right-3 top-[64%] -translate-y-1/2 items-center gap-2 px-3 py-2 rounded-lg bg-[#060f24]/90 border border-cyan-500/35">
+        <div className="hidden sm:flex land:flex absolute right-3 land:right-2.5 top-[64%] land:top-auto land:bottom-1.5 -translate-y-1/2 land:translate-y-0 items-center gap-2 land:gap-1.5 px-3 land:px-2 py-2 land:py-1 rounded-lg bg-[#060f24]/90 border border-cyan-500/35 max-w-[38vw]">
           <span
-            className={`px-1.5 py-0.5 rounded text-[9px] font-mono-num font-bold ${
+            className={`px-1.5 py-0.5 rounded text-[9px] font-mono-num font-bold shrink-0 ${
               nonStrikerHand === 'left'
                 ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40'
                 : 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/40'
@@ -450,14 +450,14 @@ export const GameHud: React.FC<GameHudProps> = ({
           >
             {nonStrikerHand === 'left' ? 'LHB' : 'RHB'}
           </span>
-          <span className="text-xs font-semibold text-slate-200">{nonStriker?.name}</span>
-          <span className="font-mono-num text-xs font-bold text-amber-400">
+          <span className="text-xs land:text-[11px] font-semibold text-slate-200 truncate">{nonStriker?.name}</span>
+          <span className="font-mono-num text-xs land:text-[11px] font-bold text-amber-400 shrink-0">
             {nonStriker?.runs ?? 0}({nonStriker?.balls ?? 0})
           </span>
         </div>
 
-        {/* Mobile Live Striker & Non-Striker Strip */}
-        <div className="sm:hidden absolute bottom-11 left-2 right-2 flex items-center justify-between gap-2">
+        {/* Mobile Portrait Live Striker & Non-Striker Strip */}
+        <div className="sm:hidden land:!hidden absolute bottom-11 left-2 right-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#060f24]/92 border border-cyan-500/35 min-w-0">
             <span
               className={`px-1 py-0.5 rounded text-[8px] font-mono-num font-bold shrink-0 ${
@@ -492,13 +492,15 @@ export const GameHud: React.FC<GameHudProps> = ({
         </div>
 
         {/* Partnership badge centered below pitch */}
-        <div className="absolute bottom-2.5 sm:bottom-3 left-1/2 -translate-x-1/2 px-3 sm:px-3.5 py-1 rounded-md bg-[#060f24]/88 border border-slate-500/40 text-[11px] sm:text-xs font-mono-num text-slate-200 whitespace-nowrap">
-          Partnership: {active.partnershipRuns}({active.partnershipBalls})
+        <div className="absolute bottom-2.5 sm:bottom-3 land:bottom-1.5 left-1/2 -translate-x-1/2 px-3 sm:px-3.5 land:px-2 py-1 land:py-0.5 rounded-md bg-[#060f24]/88 border border-slate-500/40 text-[11px] sm:text-xs land:text-[10px] font-mono-num text-slate-200 whitespace-nowrap">
+          <span className="land:hidden">Partnership: </span>
+          <span className="hidden land:inline">P&apos;ship: </span>
+          {active.partnershipRuns}({active.partnershipBalls})
         </div>
 
         {/* AI Thinking indicator */}
         {aiThinking && (
-          <div className="absolute top-14 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-md bg-[#060f24]/95 border border-amber-400/60 text-xs font-semibold tracking-widest text-amber-300 uppercase">
+          <div className="absolute top-14 land:top-9 left-1/2 -translate-x-1/2 px-4 land:px-3 py-1.5 land:py-0.5 rounded-md bg-[#060f24]/95 border border-amber-400/60 text-xs land:text-[11px] font-semibold tracking-widest text-amber-300 uppercase">
             AI THINKING...
           </div>
         )}
@@ -507,10 +509,10 @@ export const GameHud: React.FC<GameHudProps> = ({
         {lastOutcomeBanner && (
           <div
             key={lastOutcomeBanner.id}
-            className="animate-outcome-pop absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 px-7 py-3 rounded-xl bg-[#071128]/95 border-2 border-amber-400 shadow-[0_0_32px_rgba(250,204,21,0.35)] text-center"
+            className="animate-outcome-pop absolute top-1/3 land:top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-7 land:px-4 py-3 land:py-1.5 rounded-xl bg-[#071128]/95 border-2 border-amber-400 shadow-[0_0_32px_rgba(250,204,21,0.35)] text-center"
           >
             <div
-              className={`font-display text-4xl sm:text-5xl font-bold tracking-wider ${
+              className={`font-display text-4xl sm:text-5xl land:text-2xl font-bold tracking-wider ${
                 lastOutcomeBanner.resolution.isWicket
                   ? 'text-rose-400'
                   : lastOutcomeBanner.resolution.isBoundarySix
@@ -527,21 +529,21 @@ export const GameHud: React.FC<GameHudProps> = ({
       </div>
 
       {/* BOTTOM REAL-TIME COMMENTARY BOX & CONTROL DECK */}
-      <footer className="pointer-events-auto w-full bg-[#050d20]/96 border-t border-cyan-500/30 px-2.5 sm:px-5 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] space-y-2">
+      <footer className="pointer-events-auto w-full bg-[#050d20]/96 border-t border-cyan-500/30 px-2.5 sm:px-5 land:px-2.5 pt-2 land:pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] land:pb-[max(0.25rem,env(safe-area-inset-bottom))] space-y-2 land:space-y-1">
         {/* Real-Time Ball-by-Ball Commentary Box */}
         <div
           data-testid="commentary-box"
           role="log"
           aria-live="polite"
           aria-label="Live match commentary"
-          className="max-w-6xl mx-auto rounded-md bg-[#08132d] border border-cyan-500/30 px-3 py-1.5 max-h-[68px] sm:max-h-[76px] overflow-y-auto space-y-1"
+          className="max-w-6xl mx-auto rounded-md bg-[#08132d] border border-cyan-500/30 px-3 land:px-2.5 py-1.5 land:py-0.5 max-h-[68px] sm:max-h-[76px] land:max-h-[28px] overflow-y-auto space-y-1 land:space-y-0.5"
         >
           {match.mode === 'pvp' && (match.pvpTurnPhase === 'bowl_select' || match.pvpTurnPhase === 'bat_select') && (
-            <div className="flex items-start gap-2 text-xs text-cyan-200 font-semibold border-b border-cyan-500/20 pb-1">
+            <div className="flex items-start gap-2 text-xs land:text-[11px] text-cyan-200 font-semibold border-b border-cyan-500/20 pb-1 land:pb-0.5">
               <span className="font-mono-num text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 shrink-0">
                 TURN
               </span>
-              <span>
+              <span className="land:truncate">
                 {match.pvpTurnPhase === 'bowl_select'
                   ? `P1 Bowling (${active.bowlerName}): Select delivery type & length, then click BOWL.`
                   : `P2 Batting (${striker?.name}): ${DELIVERY_META[match.pendingDeliveryType].label} · ${LENGTH_META[match.pendingDeliveryLength].label} incoming — choose your shot!`}
@@ -552,15 +554,15 @@ export const GameHud: React.FC<GameHudProps> = ({
           {match.commentaryLog.map((entry, idx) => (
             <div
               key={entry.id}
-              className={`flex items-start gap-2 text-xs leading-snug ${
+              className={`flex items-start gap-2 text-xs land:text-[11px] leading-snug ${
                 idx === 0 ? 'text-slate-100 font-medium' : 'text-slate-400'
               }`}
             >
-              <span className="font-mono-num text-[10px] text-cyan-300/90 shrink-0 pt-0.5 w-8">
+              <span className="font-mono-num text-[10px] text-cyan-300/90 shrink-0 pt-0.5 land:pt-0 w-8">
                 {entry.overBall}
               </span>
               <span
-                className={`font-mono-num text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 min-w-[22px] text-center ${
+                className={`font-mono-num text-[10px] font-bold px-1.5 py-0.5 land:py-0 rounded shrink-0 min-w-[22px] text-center ${
                   entry.isWicket
                     ? 'bg-rose-600 text-white'
                     : entry.outcomeSymbol === '6'
@@ -572,7 +574,7 @@ export const GameHud: React.FC<GameHudProps> = ({
               >
                 {entry.outcomeSymbol}
               </span>
-              <span className="flex-1">{entry.text}</span>
+              <span className="flex-1 land:truncate">{entry.text}</span>
             </div>
           ))}
         </div>
@@ -580,7 +582,7 @@ export const GameHud: React.FC<GameHudProps> = ({
         {/* Controls */}
         <div className="max-w-6xl mx-auto">
           {playerBatting ? (
-            <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2 land:gap-1">
               {SHOTS_ORDER.map((shot) => {
                 const meta = SHOT_META[shot];
                 return (
@@ -590,10 +592,10 @@ export const GameHud: React.FC<GameHudProps> = ({
                     disabled={controlsLocked}
                     onClick={() => onSelectShot(shot)}
                     title={meta.description}
-                    className={`min-h-[42px] py-2 px-1.5 sm:py-2.5 sm:px-3 rounded-lg bg-[#08132b] border ${meta.border} ${meta.text} font-semibold tracking-wider text-[11px] sm:text-sm transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-amber-400`}
+                    className={`min-h-[42px] land:min-h-[32px] py-2 land:py-1 px-1.5 sm:py-2.5 sm:px-3 rounded-lg bg-[#08132b] border ${meta.border} ${meta.text} font-semibold tracking-wider text-[11px] sm:text-sm land:text-xs transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-amber-400`}
                   >
                     <span>{meta.label}</span>
-                    <span className="hidden md:inline text-[10px] text-slate-400 font-mono-num">
+                    <span className="hidden md:inline land:!hidden text-[10px] text-slate-400 font-mono-num">
                       [{meta.keyHint}]
                     </span>
                   </button>
@@ -601,10 +603,10 @@ export const GameHud: React.FC<GameHudProps> = ({
               })}
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 land:space-y-1">
               {/* Auto-Detected Bowler Style Control Lock (Pacer vs Spinner) + Side Switch (Over/Around) */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 land:gap-1.5">
+                <div className="flex flex-wrap items-center gap-2 land:gap-1.5">
                   <div className="inline-flex items-center p-0.5 rounded-lg bg-[#08132b] border border-cyan-500/35">
                     <button
                       type="button"
@@ -615,7 +617,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                           ? 'Locked: Current bowler is a Spinner'
                           : 'Pace & Seam deliveries enabled'
                       }
-                      className={`inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap ${
+                      className={`inline-flex items-center gap-1 px-2.5 sm:px-3 land:px-2 py-1 land:py-0.5 rounded-md text-[11px] land:text-[10px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap ${
                         effectiveBowlingTab === 'pace'
                           ? 'bg-amber-400 text-slate-950 cursor-pointer'
                           : 'text-slate-500 opacity-45 cursor-not-allowed'
@@ -633,7 +635,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                           ? 'Locked: Current bowler is a Pacer'
                           : 'Spin Variations enabled'
                       }
-                      className={`inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap ${
+                      className={`inline-flex items-center gap-1 px-2.5 sm:px-3 land:px-2 py-1 land:py-0.5 rounded-md text-[11px] land:text-[10px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap ${
                         effectiveBowlingTab === 'spin'
                           ? 'bg-purple-400 text-slate-950 cursor-pointer'
                           : 'text-slate-500 opacity-45 cursor-not-allowed'
@@ -656,7 +658,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                       disabled={controlsLocked}
                       aria-pressed={currentBowlingSide === 'over'}
                       onClick={() => onSelectBowlingSide('over')}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer disabled:opacity-45 ${
+                      className={`px-2.5 land:px-2 py-1 land:py-0.5 rounded-md text-[11px] land:text-[10px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer disabled:opacity-45 ${
                         currentBowlingSide === 'over'
                           ? 'bg-cyan-400 text-slate-950'
                           : 'text-slate-300 hover:text-white'
@@ -669,7 +671,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                       disabled={controlsLocked}
                       aria-pressed={currentBowlingSide === 'round'}
                       onClick={() => onSelectBowlingSide('round')}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer disabled:opacity-45 ${
+                      className={`px-2.5 land:px-2 py-1 land:py-0.5 rounded-md text-[11px] land:text-[10px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer disabled:opacity-45 ${
                         currentBowlingSide === 'round'
                           ? 'bg-cyan-400 text-slate-950'
                           : 'text-slate-300 hover:text-white'
@@ -679,7 +681,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                     </button>
                   </div>
 
-                  <span className="hidden lg:inline text-[10px] font-mono-num text-cyan-200/85">
+                  <span className="hidden lg:inline land:!hidden text-[10px] font-mono-num text-cyan-200/85">
                     {activeBowlerStyle === 'pace'
                       ? `${active.bowlerName} (Pacer)`
                       : `${active.bowlerName} (Spinner)`}
@@ -697,10 +699,10 @@ export const GameHud: React.FC<GameHudProps> = ({
               </div>
 
               <div
-                className={`grid gap-2 ${
+                className={`grid gap-2 land:gap-1 ${
                   effectiveBowlingTab === 'spin'
-                    ? 'grid-cols-3 sm:grid-cols-6'
-                    : 'grid-cols-3 sm:grid-cols-5'
+                    ? 'grid-cols-3 sm:grid-cols-6 land:grid-cols-6'
+                    : 'grid-cols-3 sm:grid-cols-5 land:grid-cols-5'
                 }`}
               >
                 {(effectiveBowlingTab === 'spin' ? SPIN_DELIVERY_TYPES : PACE_DELIVERY_TYPES).map(
@@ -713,7 +715,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                         type="button"
                         disabled={controlsLocked}
                         onClick={() => onSelectDeliveryType(del)}
-                        className={`py-2 px-2 rounded-lg border text-xs font-semibold tracking-wider transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 ${
+                        className={`py-2 land:py-1 px-2 land:px-1 rounded-lg border text-xs land:text-[11px] font-semibold tracking-wider transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 ${
                           activeSel
                             ? 'bg-cyan-400/20 border-cyan-300 text-white'
                             : `bg-[#08132b] ${meta.border} ${meta.text} hover:bg-[#0e1f45]`
@@ -726,35 +728,38 @@ export const GameHud: React.FC<GameHudProps> = ({
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
-                {LENGTHS_ORDER.map((len) => {
-                  const activeLen = selectedDeliveryLength === len;
-                  return (
-                    <button
-                      key={len}
-                      type="button"
-                      disabled={controlsLocked}
-                      onClick={() => onSelectDeliveryLength(len)}
-                      className={`py-1.5 px-3 rounded-lg border text-xs font-semibold tracking-wider transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 ${
-                        activeLen
-                          ? 'bg-cyan-500/25 border-cyan-300 text-cyan-200'
-                          : 'bg-[#08132b] border-slate-600/60 text-slate-300 hover:border-cyan-400/60'
-                      }`}
-                    >
-                      {LENGTH_META[len].label}
-                    </button>
-                  );
-                })}
-              </div>
+              {/* In mobile landscape, group Lengths (left 3 cols) + BOWL (right 2 cols) side-by-side to keep field wide open */}
+              <div className="space-y-2 land:space-y-0 land:grid land:grid-cols-5 land:gap-1.5">
+                <div className="grid grid-cols-3 gap-2 land:gap-1 land:col-span-3">
+                  {LENGTHS_ORDER.map((len) => {
+                    const activeLen = selectedDeliveryLength === len;
+                    return (
+                      <button
+                        key={len}
+                        type="button"
+                        disabled={controlsLocked}
+                        onClick={() => onSelectDeliveryLength(len)}
+                        className={`py-1.5 land:py-1 px-3 land:px-1.5 rounded-lg border text-xs land:text-[11px] font-semibold tracking-wider transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 ${
+                          activeLen
+                            ? 'bg-cyan-500/25 border-cyan-300 text-cyan-200'
+                            : 'bg-[#08132b] border-slate-600/60 text-slate-300 hover:border-cyan-400/60'
+                        }`}
+                      >
+                        {LENGTH_META[len].label}
+                      </button>
+                    );
+                  })}
+                </div>
 
-              <button
-                type="button"
-                disabled={controlsLocked}
-                onClick={onBowl}
-                className="w-full py-2.5 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-display text-lg tracking-widest uppercase transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-amber-400"
-              >
-                BOWL
-              </button>
+                <button
+                  type="button"
+                  disabled={controlsLocked}
+                  onClick={onBowl}
+                  className="w-full land:col-span-2 py-2.5 land:py-1 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-display text-lg land:text-base tracking-widest uppercase transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-amber-400"
+                >
+                  BOWL
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -766,24 +771,24 @@ export const GameHud: React.FC<GameHudProps> = ({
           role="dialog"
           aria-modal="true"
           aria-label="Squads and Live Scorecard"
-          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/88 flex items-center justify-center p-4"
+          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/88 flex items-center justify-center p-4 land:p-2"
         >
-          <div className="w-full max-w-2xl max-h-[84vh] rounded-xl bg-[#0b1530] border border-cyan-400/50 p-5 flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
-              <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-wider text-amber-400">
+          <div className="w-full max-w-2xl max-h-[84vh] land:max-h-[92dvh] rounded-xl bg-[#0b1530] border border-cyan-400/50 p-5 land:p-3 flex flex-col gap-4 land:gap-2">
+            <div className="flex items-center justify-between border-b border-slate-700/60 pb-3 land:pb-1.5">
+              <h2 className="font-display text-2xl sm:text-3xl land:text-xl font-bold tracking-wider text-amber-400">
                 PLAYING XI & SCORECARD
               </h2>
               <button
                 type="button"
                 aria-label="Close squads and scorecard"
                 onClick={() => setShowScorecard(false)}
-                className="w-8 h-8 rounded-md bg-[#101e42] border border-cyan-500/35 text-slate-200 hover:border-cyan-300 flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 land:w-7 land:h-7 rounded-md bg-[#101e42] border border-cyan-500/35 text-slate-200 hover:border-cyan-300 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 land:grid-cols-2 gap-4 land:gap-2.5 overflow-y-auto pr-1">
               {/* Batting XI + Live Runs */}
               <div className="rounded-lg bg-[#070f24] border border-cyan-500/30 p-3.5 space-y-2">
                 <div className="flex items-center justify-between pb-1.5 border-b border-slate-700/60">
@@ -882,7 +887,7 @@ export const GameHud: React.FC<GameHudProps> = ({
           aria-modal="true"
           aria-label="Player Milestone Celebration"
           data-testid="milestone-celebration-popup"
-          className="pointer-events-auto fixed inset-0 z-40 bg-[#020612]/85 flex items-center justify-center p-4"
+          className="pointer-events-auto fixed inset-0 z-40 bg-[#020612]/85 flex items-center justify-center p-4 land:p-2"
         >
           {(() => {
             const ms = match.pendingMilestonePopup;
@@ -890,28 +895,28 @@ export const GameHud: React.FC<GameHudProps> = ({
             const isFiveFer = ms.kind === '5fer';
             const badgeText = isFiveFer ? '5W' : ms.kind;
             return (
-              <div className="animate-modal-pop w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl bg-[#0b1530] border-2 border-amber-400 p-6 text-center space-y-4 shadow-[0_0_44px_rgba(250,204,21,0.38)]">
+              <div className="animate-modal-pop w-full max-w-md max-h-[90vh] land:max-h-[92dvh] overflow-y-auto rounded-xl bg-[#0b1530] border-2 border-amber-400 p-6 land:p-3.5 text-center space-y-4 land:space-y-2.5 shadow-[0_0_44px_rgba(250,204,21,0.38)]">
                 <div className="flex items-center justify-center gap-2">
-                  <div className="w-16 h-16 rounded-full bg-amber-400/15 border-2 border-amber-400 flex items-center justify-center">
-                    <span className="font-display text-3xl font-bold text-amber-300">
+                  <div className="w-16 h-16 land:w-11 land:h-11 rounded-full bg-amber-400/15 border-2 border-amber-400 flex items-center justify-center">
+                    <span className="font-display text-3xl land:text-xl font-bold text-amber-300">
                       {badgeText}
                     </span>
                   </div>
                 </div>
 
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/40 text-[11px] font-mono-num font-bold uppercase tracking-widest text-amber-300">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 land:py-0.5 rounded-full bg-amber-400/15 border border-amber-400/40 text-[11px] font-mono-num font-bold uppercase tracking-widest text-amber-300">
                   <Flame className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
                   {isFiveFer ? 'Bowling Milestone' : 'Batting Milestone'}
                 </div>
 
                 <div>
-                  <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-wider text-amber-300">
+                  <h2 className="font-display text-3xl sm:text-4xl land:text-2xl font-bold tracking-wider text-amber-300">
                     {ms.title}
                   </h2>
-                  <p className="text-xs sm:text-sm text-cyan-200 mt-1">{ms.subtitle}</p>
+                  <p className="text-xs sm:text-sm land:text-xs text-cyan-200 mt-1 land:mt-0.5">{ms.subtitle}</p>
                 </div>
 
-                <div className="p-3.5 rounded-lg bg-[#070f24] border border-cyan-500/35 flex items-center justify-between gap-3">
+                <div className="p-3.5 land:p-2.5 rounded-lg bg-[#070f24] border border-cyan-500/35 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0 text-left">
                     <TeamBadge team={msTeam} size="sm" />
                     <div className="min-w-0">
@@ -921,14 +926,14 @@ export const GameHud: React.FC<GameHudProps> = ({
                   </div>
                   {isFiveFer ? (
                     <div className="text-right font-mono-num shrink-0">
-                      <div className="text-xl font-bold text-rose-300">
+                      <div className="text-xl land:text-lg font-bold text-rose-300">
                         {ms.wickets}-{ms.runsConceded}
                       </div>
                       <div className="text-[10px] text-slate-400">{ms.oversText} ov</div>
                     </div>
                   ) : (
                     <div className="text-right font-mono-num shrink-0">
-                      <div className="text-xl font-bold text-amber-300">
+                      <div className="text-xl land:text-lg font-bold text-amber-300">
                         {ms.runs}* ({ms.balls})
                       </div>
                       <div className="text-[10px] text-slate-400">
@@ -941,7 +946,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                 <button
                   type="button"
                   onClick={onDismissMilestonePopup}
-                  className="w-full py-2.5 px-5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display text-lg font-bold tracking-wider uppercase cursor-pointer"
+                  className="w-full py-2.5 land:py-2 px-5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display text-lg land:text-base font-bold tracking-wider uppercase cursor-pointer"
                 >
                   {isFiveFer ? 'CELEBRATE 5-FER & CONTINUE ▶' : 'RAISE THE BAT & CONTINUE ▶'}
                 </button>
@@ -960,7 +965,7 @@ export const GameHud: React.FC<GameHudProps> = ({
           aria-modal="true"
           aria-label="Select Next Batter"
           data-testid="next-batter-popup"
-          className="pointer-events-auto fixed inset-0 z-35 bg-[#020612]/85 flex items-center justify-center p-4"
+          className="pointer-events-auto fixed inset-0 z-35 bg-[#020612]/85 flex items-center justify-center p-4 land:p-2"
         >
           {(() => {
             const prompt = match.pendingBatterPopup;
@@ -972,12 +977,12 @@ export const GameHud: React.FC<GameHudProps> = ({
               .filter(({ batter, idx }) => !batter.out && idx !== survivingIndex);
 
             return (
-              <div className="animate-modal-pop w-full max-w-md max-h-[88vh] rounded-xl bg-[#0b1530] border-2 border-amber-400/80 p-5 flex flex-col gap-4 shadow-[0_0_36px_rgba(250,204,21,0.28)]">
-                <div className="text-center space-y-1 border-b border-slate-700/60 pb-3">
+              <div className="animate-modal-pop w-full max-w-md land:max-w-xl max-h-[88vh] land:max-h-[92dvh] rounded-xl bg-[#0b1530] border-2 border-amber-400/80 p-5 land:p-3.5 flex flex-col gap-4 land:gap-2.5 shadow-[0_0_36px_rgba(250,204,21,0.28)]">
+                <div className="text-center space-y-1 land:space-y-0.5 border-b border-slate-700/60 pb-3 land:pb-2">
                   <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/50 text-[10px] font-mono-num font-bold uppercase tracking-widest text-rose-300">
                     Wicket #{prompt.wickets} · {batTeam.code} {active.runs}/{active.wickets}
                   </div>
-                  <h2 className="font-display text-3xl font-bold tracking-wider text-amber-400">
+                  <h2 className="font-display text-3xl land:text-2xl font-bold tracking-wider text-amber-400">
                     CHOOSE NEXT BATTER
                   </h2>
                   <p className="text-xs text-slate-300">
@@ -991,7 +996,7 @@ export const GameHud: React.FC<GameHudProps> = ({
 
                 <div
                   data-testid="next-batter-list"
-                  className="overflow-y-auto space-y-1.5 pr-1"
+                  className="overflow-y-auto grid grid-cols-1 land:grid-cols-2 gap-1.5 pr-1"
                 >
                   {availableBatters.map(({ batter, idx }) => {
                     const hand = getBattingHand(batter.name);
@@ -1003,7 +1008,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                         type="button"
                         data-testid={`select-batter-${idx}`}
                         onClick={() => onSelectNextBatter(idx)}
-                        className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 land:py-2 rounded-lg border text-left transition-colors cursor-pointer ${
                           isRecommended
                             ? 'bg-amber-400/15 border-amber-400 text-white hover:bg-amber-400/25'
                             : 'bg-[#070f24] border-cyan-500/30 text-slate-200 hover:border-cyan-300 hover:bg-[#0e1f45]'
@@ -1013,7 +1018,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                           <span className="font-mono-num text-[11px] text-slate-400 w-5 shrink-0">
                             #{idx + 1}
                           </span>
-                          <span className="text-sm font-semibold truncate">{batter.name}</span>
+                          <span className="text-sm land:text-xs font-semibold truncate">{batter.name}</span>
                           {isRecommended && (
                             <span className="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 text-[9px] font-mono-num font-bold uppercase shrink-0">
                               Next
@@ -1053,12 +1058,12 @@ export const GameHud: React.FC<GameHudProps> = ({
           aria-modal="true"
           aria-label="Choose Opening Bowler"
           data-testid="opening-bowler-popup"
-          className="pointer-events-auto fixed inset-0 z-35 bg-[#020612]/85 flex items-center justify-center p-4"
+          className="pointer-events-auto fixed inset-0 z-35 bg-[#020612]/85 flex items-center justify-center p-4 land:p-2"
         >
-          <div className="animate-modal-pop w-full max-w-md max-h-[86vh] rounded-xl bg-[#0b1530] border-2 border-cyan-400/80 p-5 flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
+          <div className="animate-modal-pop w-full max-w-md land:max-w-xl max-h-[86vh] land:max-h-[92dvh] rounded-xl bg-[#0b1530] border-2 border-cyan-400/80 p-5 land:p-3.5 flex flex-col gap-4 land:gap-2.5">
+            <div className="flex items-center justify-between border-b border-slate-700/60 pb-3 land:pb-2">
               <div>
-                <h2 className="font-display text-2xl font-bold tracking-wider text-amber-400">
+                <h2 className="font-display text-2xl land:text-xl font-bold tracking-wider text-amber-400">
                   SELECT OPENING BOWLER
                 </h2>
                 <p className="text-xs text-cyan-300">{bowlTeam.name} Bowling Attack</p>
@@ -1067,12 +1072,12 @@ export const GameHud: React.FC<GameHudProps> = ({
                 type="button"
                 aria-label="Close opening bowler picker"
                 onClick={() => setShowOpeningBowlerPicker(false)}
-                className="w-8 h-8 rounded-md bg-[#101e42] border border-cyan-500/35 text-slate-200 hover:border-cyan-300 flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 land:w-7 land:h-7 rounded-md bg-[#101e42] border border-cyan-500/35 text-slate-200 hover:border-cyan-300 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="space-y-1.5 overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 land:grid-cols-2 gap-1.5 overflow-y-auto pr-1">
               {bowlTeam.bowlers.map((bName) => {
                 const isSelected = active.bowlerName === bName;
                 const style = getBowlingStyle(bName);
@@ -1084,13 +1089,13 @@ export const GameHud: React.FC<GameHudProps> = ({
                       onSelectNextBowler(bName);
                       setShowOpeningBowlerPicker(false);
                     }}
-                    className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 land:py-2 rounded-lg border text-left transition-colors cursor-pointer ${
                       isSelected
                         ? 'bg-cyan-400/20 border-cyan-300 text-white'
                         : 'bg-[#070f24] border-cyan-500/30 text-slate-200 hover:border-cyan-300'
                     }`}
                   >
-                    <span className="text-sm font-semibold truncate">{bName}</span>
+                    <span className="text-sm land:text-xs font-semibold truncate">{bName}</span>
                     <span
                       className={`px-1.5 py-0.5 rounded text-[9px] font-mono-num font-bold uppercase shrink-0 ${
                         style === 'spin'
@@ -1119,155 +1124,159 @@ export const GameHud: React.FC<GameHudProps> = ({
           aria-modal="true"
           aria-label="Over Completed"
           data-testid="over-complete-popup"
-          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/80 flex items-center justify-center p-4"
+          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/80 flex items-center justify-center p-4 land:p-2"
         >
-          <div className="animate-modal-pop w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl bg-[#0b1530] border-2 border-cyan-400/70 p-5 sm:p-6 text-center space-y-4 shadow-[0_0_36px_rgba(56,189,248,0.25)]">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/40 text-[11px] font-mono-num font-bold uppercase tracking-widest text-cyan-300">
-              End of Over {match.pendingOverPopup.overNumber}
+          <div className="animate-modal-pop w-full max-w-md land:max-w-2xl max-h-[90vh] land:max-h-[92dvh] overflow-y-auto rounded-xl bg-[#0b1530] border-2 border-cyan-400/70 p-5 sm:p-6 land:p-3.5 text-center space-y-4 land:space-y-2.5 shadow-[0_0_36px_rgba(56,189,248,0.25)]">
+            <div className="flex flex-col items-center land:flex-row land:justify-between land:gap-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 land:py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/40 text-[11px] font-mono-num font-bold uppercase tracking-widest text-cyan-300">
+                End of Over {match.pendingOverPopup.overNumber}
+              </div>
+
+              <h2 className="font-display text-3xl sm:text-4xl land:text-2xl font-bold tracking-wider text-amber-400 mt-1.5 land:mt-0">
+                OVER {match.pendingOverPopup.overNumber} COMPLETE
+              </h2>
             </div>
 
-            <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-wider text-amber-400">
-              OVER {match.pendingOverPopup.overNumber} COMPLETE
-            </h2>
-
-            <div className="p-3.5 rounded-lg bg-[#070f24] border border-cyan-500/30 space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-300">
-                  Bowler:{' '}
-                  <span className="text-white font-semibold">
-                    {match.pendingOverPopup.bowlerName}
-                  </span>{' '}
-                  <span className="text-[10px] font-mono-num text-cyan-300">
-                    ({match.pendingOverPopup.bowlerStyle.toUpperCase()})
+            <div className="space-y-4 land:space-y-0 land:grid land:grid-cols-12 land:gap-3 land:items-start">
+              <div className="p-3.5 land:p-2.5 rounded-lg bg-[#070f24] border border-cyan-500/30 space-y-3 land:space-y-2 land:col-span-5">
+                <div className="flex items-center justify-between text-xs gap-1">
+                  <span className="text-slate-300 truncate text-left">
+                    Bowler:{' '}
+                    <span className="text-white font-semibold">
+                      {match.pendingOverPopup.bowlerName}
+                    </span>{' '}
+                    <span className="text-[10px] font-mono-num text-cyan-300">
+                      ({match.pendingOverPopup.bowlerStyle.toUpperCase()})
+                    </span>
                   </span>
-                </span>
-                <span className="font-mono-num font-bold text-amber-300">
-                  {batTeam.code} {match.pendingOverPopup.teamRuns}/
-                  {match.pendingOverPopup.teamWickets}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-center gap-2">
-                {match.pendingOverPopup.balls.map((sym, i) => (
-                  <span
-                    key={i}
-                    className={`w-7 h-7 rounded-full border flex items-center justify-center text-xs font-mono-num font-bold ${
-                      sym === 'W'
-                        ? 'border-rose-400 bg-rose-600 text-white'
-                        : sym === '6'
-                        ? 'border-amber-300 bg-amber-400 text-slate-950'
-                        : sym === '4'
-                        ? 'border-cyan-300 bg-cyan-400 text-slate-950'
-                        : 'border-emerald-400/60 bg-[#0d1b38] text-slate-100'
-                    }`}
-                  >
-                    {sym}
+                  <span className="font-mono-num font-bold text-amber-300 shrink-0">
+                    {batTeam.code} {match.pendingOverPopup.teamRuns}/
+                    {match.pendingOverPopup.teamWickets}
                   </span>
-                ))}
-              </div>
+                </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800 text-xs font-mono-num">
-                <div className="p-2 rounded bg-[#0c1a3a]">
-                  <div className="text-[10px] text-slate-400 uppercase">Runs in Over</div>
-                  <div className="text-lg font-bold text-amber-400">
-                    {match.pendingOverPopup.runsConceded}
+                <div className="flex items-center justify-center gap-2 land:gap-1.5">
+                  {match.pendingOverPopup.balls.map((sym, i) => (
+                    <span
+                      key={i}
+                      className={`w-7 h-7 land:w-6 land:h-6 rounded-full border flex items-center justify-center text-xs land:text-[11px] font-mono-num font-bold ${
+                        sym === 'W'
+                          ? 'border-rose-400 bg-rose-600 text-white'
+                          : sym === '6'
+                          ? 'border-amber-300 bg-amber-400 text-slate-950'
+                          : sym === '4'
+                          ? 'border-cyan-300 bg-cyan-400 text-slate-950'
+                          : 'border-emerald-400/60 bg-[#0d1b38] text-slate-100'
+                      }`}
+                    >
+                      {sym}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800 text-xs font-mono-num">
+                  <div className="p-2 land:p-1.5 rounded bg-[#0c1a3a]">
+                    <div className="text-[10px] text-slate-400 uppercase">Runs in Over</div>
+                    <div className="text-lg land:text-base font-bold text-amber-400">
+                      {match.pendingOverPopup.runsConceded}
+                    </div>
+                  </div>
+                  <div className="p-2 land:p-1.5 rounded bg-[#0c1a3a]">
+                    <div className="text-[10px] text-slate-400 uppercase">Wickets in Over</div>
+                    <div className="text-lg land:text-base font-bold text-rose-400">
+                      {match.pendingOverPopup.wicketsTaken}
+                    </div>
                   </div>
                 </div>
-                <div className="p-2 rounded bg-[#0c1a3a]">
-                  <div className="text-[10px] text-slate-400 uppercase">Wickets in Over</div>
-                  <div className="text-lg font-bold text-rose-400">
-                    {match.pendingOverPopup.wicketsTaken}
-                  </div>
-                </div>
               </div>
-            </div>
 
-            {userControlsBowling ? (
-              <div
-                data-testid="next-bowler-selector"
-                className="p-3 rounded-lg bg-[#070f24] border border-cyan-500/30 space-y-2 text-left"
-              >
-                <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-cyan-300">
-                  <span>Choose Next Bowler ({bowlTeam.code})</span>
-                  <span className="font-mono-num text-amber-300 truncate ml-2">
-                    {match.pendingOverPopup.nextBowlerName}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[168px] overflow-y-auto pr-0.5">
-                  {bowlTeam.bowlers.map((bName) => {
-                    const isSelected = match.pendingOverPopup?.nextBowlerName === bName;
-                    const bowledLast =
-                      bowlTeam.bowlers.length > 1 &&
-                      match.pendingOverPopup?.bowlerName === bName;
-                    const spell = active.bowlerSpells?.[bName];
-                    const style = getBowlingStyle(bName);
-                    return (
-                      <button
-                        key={bName}
-                        type="button"
-                        disabled={bowledLast}
-                        data-selected={isSelected ? 'true' : 'false'}
-                        onClick={() => onSelectNextBowler(bName)}
-                        className={`flex items-center justify-between gap-1 px-2 py-2 rounded-md border text-left text-xs ${
-                          bowledLast
-                            ? 'bg-[#081129] border-slate-800 text-slate-500 opacity-55 cursor-not-allowed'
-                            : isSelected
-                            ? 'bg-cyan-400/20 border-cyan-300 text-white cursor-pointer'
-                            : 'bg-[#0c1a3a] border-slate-700/70 text-slate-200 hover:border-cyan-400/70 cursor-pointer'
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-[11px] sm:text-xs truncate">{bName}</div>
-                          <div className="text-[10px] font-mono-num text-slate-400">
-                            {bowledLast
-                              ? 'Bowled last over'
-                              : spell && spell.balls > 0
-                              ? `${spell.wickets}-${spell.runs} (${formatOvers(spell.balls)} ov)`
-                              : '0-0 (0.0 ov)'}
-                          </div>
-                        </div>
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[9px] font-mono-num font-bold uppercase shrink-0 ${
-                            style === 'spin'
-                              ? 'bg-purple-500/25 text-purple-200 border border-purple-400/40'
-                              : 'bg-amber-500/25 text-amber-200 border border-amber-400/40'
+              {userControlsBowling ? (
+                <div
+                  data-testid="next-bowler-selector"
+                  className="p-3 land:p-2.5 rounded-lg bg-[#070f24] border border-cyan-500/30 space-y-2 land:space-y-1.5 text-left land:col-span-7"
+                >
+                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+                    <span>Choose Next Bowler ({bowlTeam.code})</span>
+                    <span className="font-mono-num text-amber-300 truncate ml-2">
+                      {match.pendingOverPopup.nextBowlerName}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[168px] land:max-h-[132px] overflow-y-auto pr-0.5">
+                    {bowlTeam.bowlers.map((bName) => {
+                      const isSelected = match.pendingOverPopup?.nextBowlerName === bName;
+                      const bowledLast =
+                        bowlTeam.bowlers.length > 1 &&
+                        match.pendingOverPopup?.bowlerName === bName;
+                      const spell = active.bowlerSpells?.[bName];
+                      const style = getBowlingStyle(bName);
+                      return (
+                        <button
+                          key={bName}
+                          type="button"
+                          disabled={bowledLast}
+                          data-selected={isSelected ? 'true' : 'false'}
+                          onClick={() => onSelectNextBowler(bName)}
+                          className={`flex items-center justify-between gap-1 px-2 py-2 land:py-1.5 rounded-md border text-left text-xs ${
+                            bowledLast
+                              ? 'bg-[#081129] border-slate-800 text-slate-500 opacity-55 cursor-not-allowed'
+                              : isSelected
+                              ? 'bg-cyan-400/20 border-cyan-300 text-white cursor-pointer'
+                              : 'bg-[#0c1a3a] border-slate-700/70 text-slate-200 hover:border-cyan-400/70 cursor-pointer'
                           }`}
                         >
-                          {style.toUpperCase()}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {isChase && runsNeeded !== null && ballsRemaining !== null && (
-                  <div className="pt-1 text-center text-xs font-mono-num text-amber-300 font-semibold">
-                    Need {runsNeeded} runs in {ballsRemaining} balls
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-[11px] sm:text-xs truncate">{bName}</div>
+                            <div className="text-[10px] font-mono-num text-slate-400">
+                              {bowledLast
+                                ? 'Bowled last over'
+                                : spell && spell.balls > 0
+                                ? `${spell.wickets}-${spell.runs} (${formatOvers(spell.balls)} ov)`
+                                : '0-0 (0.0 ov)'}
+                            </div>
+                          </div>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-mono-num font-bold uppercase shrink-0 ${
+                              style === 'spin'
+                                ? 'bg-purple-500/25 text-purple-200 border border-purple-400/40'
+                                : 'bg-amber-500/25 text-amber-200 border border-amber-400/40'
+                            }`}
+                          >
+                            {style.toUpperCase()}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-xs text-slate-300 space-y-1">
-                <div>
-                  Next Bowler:{' '}
-                  <span className="text-cyan-300 font-semibold">
-                    {match.pendingOverPopup.nextBowlerName}
-                  </span>{' '}
-                  <span className="font-mono-num text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-amber-300">
-                    {match.pendingOverPopup.nextBowlerStyle.toUpperCase()}
-                  </span>
+                  {isChase && runsNeeded !== null && ballsRemaining !== null && (
+                    <div className="pt-1 text-center text-xs font-mono-num text-amber-300 font-semibold">
+                      Need {runsNeeded} runs in {ballsRemaining} balls
+                    </div>
+                  )}
                 </div>
-                {isChase && runsNeeded !== null && ballsRemaining !== null && (
-                  <div className="font-mono-num text-amber-300 font-semibold">
-                    Need {runsNeeded} runs in {ballsRemaining} balls
+              ) : (
+                <div className="text-xs text-slate-300 space-y-1 land:col-span-7 land:p-3 land:rounded-lg land:bg-[#070f24] land:border land:border-cyan-500/30 land:text-left">
+                  <div>
+                    Next Bowler:{' '}
+                    <span className="text-cyan-300 font-semibold">
+                      {match.pendingOverPopup.nextBowlerName}
+                    </span>{' '}
+                    <span className="font-mono-num text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-amber-300">
+                      {match.pendingOverPopup.nextBowlerStyle.toUpperCase()}
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
+                  {isChase && runsNeeded !== null && ballsRemaining !== null && (
+                    <div className="font-mono-num text-amber-300 font-semibold">
+                      Need {runsNeeded} runs in {ballsRemaining} balls
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             <button
               type="button"
               onClick={onDismissOverPopup}
-              className="w-full py-2.5 px-5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display text-lg font-bold tracking-wider uppercase cursor-pointer"
+              className="w-full py-2.5 land:py-2 px-5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display text-lg land:text-base font-bold tracking-wider uppercase cursor-pointer"
             >
               CONTINUE NEXT OVER ▶
             </button>
@@ -1285,14 +1294,14 @@ export const GameHud: React.FC<GameHudProps> = ({
           aria-modal="true"
           aria-label="Test Day Completed Scorecard"
           data-testid="day-completed-popup"
-          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/88 flex items-center justify-center p-4"
+          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/88 flex items-center justify-center p-4 land:p-2"
         >
-          <div className="w-full max-w-lg max-h-[86vh] rounded-xl bg-[#0b1530] border-2 border-amber-400/75 p-4 sm:p-6 flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
+          <div className="w-full max-w-lg max-h-[86vh] land:max-h-[92dvh] rounded-xl bg-[#0b1530] border-2 border-amber-400/75 p-4 sm:p-6 land:p-3.5 flex flex-col gap-4 land:gap-2.5">
+            <div className="flex items-center justify-between border-b border-slate-700/60 pb-3 land:pb-2">
               <div className="flex items-center gap-2.5 min-w-0">
-                <Calendar className="w-6 h-6 text-amber-400 shrink-0" aria-hidden="true" />
+                <Calendar className="w-6 h-6 land:w-5 land:h-5 text-amber-400 shrink-0" aria-hidden="true" />
                 <div className="text-left min-w-0">
-                  <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-wider text-amber-400 leading-none">
+                  <h2 className="font-display text-2xl sm:text-3xl land:text-xl font-bold tracking-wider text-amber-400 leading-none">
                     STUMPS · DAY {match.pendingDayPopup.completedDay} COMPLETED
                   </h2>
                   <p className="text-xs font-mono-num text-cyan-300 mt-1">
@@ -1380,7 +1389,7 @@ export const GameHud: React.FC<GameHudProps> = ({
             <button
               type="button"
               onClick={onProceedToNewDay}
-              className="w-full py-3 px-6 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display text-lg font-bold tracking-wider uppercase cursor-pointer"
+              className="w-full py-3 land:py-2 px-6 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display text-lg land:text-base font-bold tracking-wider uppercase cursor-pointer"
             >
               PROCEED TO DAY {match.pendingDayPopup.nextDay} ▶
             </button>
@@ -1398,17 +1407,17 @@ export const GameHud: React.FC<GameHudProps> = ({
           aria-modal="true"
           aria-label="New Test Day"
           data-testid="new-day-popup"
-          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/88 flex items-center justify-center p-4"
+          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/88 flex items-center justify-center p-4 land:p-2"
         >
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl bg-[#0b1530] border-2 border-cyan-400/75 p-6 text-center space-y-5">
-            <div className="mx-auto w-14 h-14 rounded-full bg-amber-400/15 border border-amber-400/50 flex items-center justify-center">
-              <Sun className="w-8 h-8 text-amber-400" aria-hidden="true" />
+          <div className="w-full max-w-md land:max-w-xl max-h-[90vh] land:max-h-[92dvh] overflow-y-auto rounded-xl bg-[#0b1530] border-2 border-cyan-400/75 p-6 land:p-3.5 text-center space-y-5 land:space-y-2.5">
+            <div className="mx-auto w-14 h-14 land:w-10 land:h-10 rounded-full bg-amber-400/15 border border-amber-400/50 flex items-center justify-center">
+              <Sun className="w-8 h-8 land:w-5 land:h-5 text-amber-400" aria-hidden="true" />
             </div>
             <div>
-              <h2 className="font-display text-4xl font-bold tracking-wider text-amber-400">
+              <h2 className="font-display text-4xl land:text-2xl font-bold tracking-wider text-amber-400">
                 DAY {match.pendingDayPopup.nextDay} OF 5
               </h2>
-              <p className="text-xs font-mono-num text-cyan-300 mt-1">
+              <p className="text-xs font-mono-num text-cyan-300 mt-1 land:mt-0.5">
                 Morning Session · {match.oversPerDay} Overs Today ·{' '}
                 {PITCH_META[match.pitchCondition ?? 'hard'].label} Pitch
               </p>
@@ -1472,7 +1481,7 @@ export const GameHud: React.FC<GameHudProps> = ({
             <button
               type="button"
               onClick={onContinueNewDay}
-              className="w-full py-3 px-6 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-display text-lg font-bold tracking-wider uppercase cursor-pointer"
+              className="w-full py-3 land:py-2 px-6 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-display text-lg land:text-base font-bold tracking-wider uppercase cursor-pointer"
             >
               CONTINUE TO DAY {match.pendingDayPopup.nextDay} ▶
             </button>
@@ -1486,21 +1495,21 @@ export const GameHud: React.FC<GameHudProps> = ({
           role="dialog"
           aria-modal="true"
           aria-label="Match Paused"
-          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/85 flex items-center justify-center p-4"
+          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/85 flex items-center justify-center p-4 land:p-2"
         >
-          <div className="w-full max-w-sm rounded-xl bg-[#0b1530] border border-cyan-400/50 p-6 text-center space-y-5">
-            <h2 className="font-display text-3xl font-bold tracking-wider text-amber-400">
+          <div className="w-full max-w-sm max-h-[92dvh] overflow-y-auto rounded-xl bg-[#0b1530] border border-cyan-400/50 p-6 land:p-4 text-center space-y-5 land:space-y-3">
+            <h2 className="font-display text-3xl land:text-2xl font-bold tracking-wider text-amber-400">
               MATCH PAUSED
             </h2>
             <p className="text-xs font-mono-num text-slate-300">
               {batTeam.code} {active.runs}/{active.wickets} ({formatOvers(active.ballsBowled)}
               {isTest ? ` ov · Day ${match.currentDay}/5` : ` / ${match.totalOvers} ov`})
             </p>
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-2.5 land:gap-2">
               <button
                 type="button"
                 onClick={onTogglePause}
-                className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-amber-400 text-slate-950 font-semibold text-sm uppercase tracking-wider hover:bg-amber-300 cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 py-2.5 land:py-2 px-4 rounded-lg bg-amber-400 text-slate-950 font-semibold text-sm uppercase tracking-wider hover:bg-amber-300 cursor-pointer"
               >
                 <Play className="w-4 h-4 fill-current" aria-hidden="true" />
                 Resume Match
@@ -1509,7 +1518,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                 <button
                   type="button"
                   onClick={onPlayAgain}
-                  className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-[#101e42] border border-cyan-500/40 text-cyan-200 font-semibold text-sm uppercase tracking-wider hover:border-cyan-300 cursor-pointer"
+                  className="inline-flex items-center justify-center gap-2 py-2.5 land:py-2 px-4 rounded-lg bg-[#101e42] border border-cyan-500/40 text-cyan-200 font-semibold text-sm uppercase tracking-wider hover:border-cyan-300 cursor-pointer"
                 >
                   <RotateCcw className="w-4 h-4" aria-hidden="true" />
                   Restart Match
@@ -1518,7 +1527,7 @@ export const GameHud: React.FC<GameHudProps> = ({
               <button
                 type="button"
                 onClick={match.activeTournamentMatchId ? onReturnToTournament : onExitToMenu}
-                className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-[#101e42] border border-slate-600 text-slate-200 font-semibold text-sm uppercase tracking-wider hover:border-slate-400 cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 py-2.5 land:py-2 px-4 rounded-lg bg-[#101e42] border border-slate-600 text-slate-200 font-semibold text-sm uppercase tracking-wider hover:border-slate-400 cursor-pointer"
               >
                 <Home className="w-4 h-4" aria-hidden="true" />
                 {match.activeTournamentMatchId ? 'Back to Tournament' : 'Main Menu'}
@@ -1534,13 +1543,13 @@ export const GameHud: React.FC<GameHudProps> = ({
           role="dialog"
           aria-modal="true"
           aria-label="Innings Break"
-          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/88 flex items-center justify-center p-4"
+          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/88 flex items-center justify-center p-4 land:p-2"
         >
-          <div className="w-full max-w-md rounded-xl bg-[#0b1530] border border-amber-400/60 p-7 text-center space-y-5">
-            <h2 className="font-display text-4xl font-bold tracking-wider text-amber-400">
+          <div className="w-full max-w-md land:max-w-lg max-h-[92dvh] overflow-y-auto rounded-xl bg-[#0b1530] border border-amber-400/60 p-7 land:p-4 text-center space-y-5 land:space-y-3">
+            <h2 className="font-display text-4xl land:text-2xl font-bold tracking-wider text-amber-400">
               {isTest ? `INNINGS ${match.inningsNumber} COMPLETE` : 'INNINGS BREAK'}
             </h2>
-            <div className="p-4 rounded-lg bg-[#070f24] border border-cyan-500/30 space-y-2.5">
+            <div className="p-4 land:p-3 rounded-lg bg-[#070f24] border border-cyan-500/30 space-y-2.5 land:space-y-1.5">
               {playedInningsList.map(({ num, inn }) => {
                 const innTeam = getTeamById(inn.battingTeamId);
                 return (
@@ -1563,7 +1572,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                 );
               })}
 
-              <div className="pt-2 border-t border-slate-700/60 text-sm text-cyan-300 font-semibold">
+              <div className="pt-2 border-t border-slate-700/60 text-sm land:text-xs text-cyan-300 font-semibold">
                 {isTest
                   ? match.inningsNumber === 3 && match.target !== null
                     ? `${getTeamById(active.bowlingTeamId).name} need ${match.target} runs to win`
@@ -1574,7 +1583,7 @@ export const GameHud: React.FC<GameHudProps> = ({
             <button
               type="button"
               onClick={onStartNextInnings}
-              className="w-full py-3 px-6 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display text-lg font-bold tracking-wider uppercase cursor-pointer"
+              className="w-full py-3 land:py-2 px-6 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display text-lg land:text-base font-bold tracking-wider uppercase cursor-pointer"
             >
               START{' '}
               {match.inningsNumber === 1
@@ -1594,25 +1603,25 @@ export const GameHud: React.FC<GameHudProps> = ({
           role="dialog"
           aria-modal="true"
           aria-label="Match Result"
-          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/90 flex items-center justify-center p-4"
+          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/90 flex items-center justify-center p-4 land:p-2"
         >
-          <div className="w-full max-w-md rounded-xl bg-[#0b1530] border border-amber-400/70 p-7 text-center space-y-5">
-            <div className="mx-auto w-14 h-14 rounded-full bg-amber-400/15 border border-amber-400/50 flex items-center justify-center">
-              <Trophy className="w-8 h-8 text-amber-400" aria-hidden="true" />
+          <div className="w-full max-w-md land:max-w-xl max-h-[92dvh] overflow-y-auto rounded-xl bg-[#0b1530] border border-amber-400/70 p-7 land:p-4 text-center space-y-5 land:space-y-2.5">
+            <div className="mx-auto w-14 h-14 land:w-10 land:h-10 rounded-full bg-amber-400/15 border border-amber-400/50 flex items-center justify-center">
+              <Trophy className="w-8 h-8 land:w-5 land:h-5 text-amber-400" aria-hidden="true" />
             </div>
-            <h2 className="font-display text-4xl font-bold tracking-wider text-amber-400">
+            <h2 className="font-display text-4xl land:text-2xl font-bold tracking-wider text-amber-400">
               MATCH RESULT
             </h2>
-            <p className="text-base font-semibold text-cyan-300">{match.resultSummary}</p>
+            <p className="text-base land:text-sm font-semibold text-cyan-300">{match.resultSummary}</p>
 
-            <div className="grid grid-cols-2 gap-3 text-left">
+            <div className="grid grid-cols-2 gap-3 land:gap-2 text-left">
               {playedInningsList.map(({ num, inn }) => (
-                <div key={num} className="p-3 rounded-lg bg-[#070f24] border border-cyan-500/30">
+                <div key={num} className="p-3 land:p-2 rounded-lg bg-[#070f24] border border-cyan-500/30">
                   <div className="text-xs text-slate-400">
                     {getTeamById(inn.battingTeamId).code} ({num}
                     {num === 1 ? 'st' : num === 2 ? 'nd' : num === 3 ? 'rd' : 'th'} Inn)
                   </div>
-                  <div className="font-display font-mono-num text-2xl font-bold text-white">
+                  <div className="font-display font-mono-num text-2xl land:text-xl font-bold text-white">
                     {inn.runs}/{inn.wickets}
                     {inn.declared ? 'd' : ''}
                   </div>
@@ -1626,7 +1635,7 @@ export const GameHud: React.FC<GameHudProps> = ({
             {playerOfTheMatch ? (
               <div
                 data-testid="potm-award-card"
-                className="p-3 rounded-lg bg-[#070f24] border border-amber-400/45 flex items-center justify-between gap-2.5 text-left"
+                className="p-3 land:p-2.5 rounded-lg bg-[#070f24] border border-amber-400/45 flex items-center justify-between gap-2.5 text-left"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <TeamBadge team={getTeamById(playerOfTheMatch.teamId)} size="sm" />
@@ -1657,7 +1666,7 @@ export const GameHud: React.FC<GameHudProps> = ({
               <button
                 type="button"
                 onClick={onExitToMenu}
-                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-[#101e42] border border-cyan-500/40 text-cyan-200 hover:border-cyan-300 font-semibold text-xs uppercase tracking-wider cursor-pointer"
+                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 land:py-2 px-4 rounded-lg bg-[#101e42] border border-cyan-500/40 text-cyan-200 hover:border-cyan-300 font-semibold text-xs uppercase tracking-wider cursor-pointer"
               >
                 <Home className="w-4 h-4" aria-hidden="true" />
                 MAIN MENU
@@ -1666,7 +1675,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                 <button
                   type="button"
                   onClick={onReturnToTournament}
-                  className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold text-xs uppercase tracking-wider cursor-pointer"
+                  className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 land:py-2 px-4 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold text-xs uppercase tracking-wider cursor-pointer"
                 >
                   <Trophy className="w-4 h-4" aria-hidden="true" />
                   TOURNAMENT HUB
@@ -1676,7 +1685,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                   type="button"
                   data-start="true"
                   onClick={onPlayAgain}
-                  className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold text-xs uppercase tracking-wider cursor-pointer"
+                  className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 land:py-2 px-4 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold text-xs uppercase tracking-wider cursor-pointer"
                 >
                   <RotateCcw className="w-4 h-4" aria-hidden="true" />
                   PLAY AGAIN

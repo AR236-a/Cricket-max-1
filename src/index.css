@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant land (@media (max-height: 520px) and (orientation: landscape));
 
 @layer base {
   :root {

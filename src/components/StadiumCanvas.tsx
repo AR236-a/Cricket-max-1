@@ -71,6 +71,35 @@ const FIELDER_ANGLES = [
 
 const FIELDER_RADII = [0.64, 0.56, 0.68, 0.44, 0.44, 0.66, 0.54, 0.66, 0.80];
 
+function computeFieldGeometry(width: number, height: number) {
+  const isShortLandscape = height <= 520 && width > height;
+  const isMobile = width < 640 && !isShortLandscape;
+  const topSafe = isShortLandscape ? 46 : isMobile ? 72 : 68;
+  const bottomSafe = isShortLandscape
+    ? Math.min(height * 0.35, 138)
+    : isMobile
+    ? Math.min(height * 0.34, 285)
+    : Math.min(height * 0.28, 220);
+  const availH = isShortLandscape
+    ? Math.max(125, height - topSafe - bottomSafe)
+    : Math.max(220, height - topSafe - bottomSafe);
+  const cx = width * 0.5;
+  const cy = topSafe + availH * 0.5;
+  const rx = isShortLandscape
+    ? Math.min(width * 0.42, availH * 1.45)
+    : isMobile
+    ? Math.min(width * 0.46, availH * 0.72)
+    : Math.min(width * 0.44, availH * 0.86);
+  const ry = isShortLandscape
+    ? Math.min(availH * 0.46, rx * 0.54)
+    : isMobile
+    ? Math.min(availH * 0.46, Math.max(rx * 0.78, availH * 0.38))
+    : Math.min(availH * 0.46, rx * 0.56);
+  const pitchW = Math.max(isShortLandscape ? 20 : 24, rx * 0.13);
+  const pitchH = isShortLandscape ? Math.max(78, ry * 0.94) : Math.max(125, ry * 0.92);
+  return { isShortLandscape, cx, cy, rx, ry, pitchW, pitchH };
+}
+
 export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
   isPlaying,
   isPaused,
@@ -212,18 +241,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
 
       if (!playing) return;
 
-      const isMobile = width < 640;
-      const topSafe = isMobile ? 72 : 68;
-      const bottomSafe = isMobile ? Math.min(height * 0.34, 285) : Math.min(height * 0.28, 220);
-      const availH = Math.max(220, height - topSafe - bottomSafe);
-      const cx = width * 0.5;
-      const cy = topSafe + availH * 0.5;
-      const rx = isMobile
-        ? Math.min(width * 0.46, availH * 0.72)
-        : Math.min(width * 0.44, availH * 0.86);
-      const ry = isMobile
-        ? Math.min(availH * 0.46, Math.max(rx * 0.78, availH * 0.38))
-        : Math.min(availH * 0.46, rx * 0.56);
+      const { cx, cy, rx, ry, pitchW, pitchH } = computeFieldGeometry(width, height);
 
       // Floodlights
       const towers = [
@@ -282,8 +300,6 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       bgCtx.restore();
 
       // Central Pitch colored & textured by pitchCondition
-      const pitchW = Math.max(24, rx * 0.13);
-      const pitchH = Math.max(125, ry * 0.92);
       const pitchX = cx - pitchW / 2;
       const pitchY = cy - pitchH / 2;
       const pitchMode = propsRef.current.pitchCondition;
@@ -343,6 +359,8 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
 
     const observer = new ResizeObserver(updateSize);
     observer.observe(canvas);
+    window.addEventListener('resize', updateSize);
+    window.addEventListener('orientationchange', updateSize);
 
     const spawnBurst = (x: number, y: number, color: string, count: number) => {
       const pool = particlesRef.current;
@@ -473,18 +491,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       ctx.save();
       ctx.translate(shakeX, shakeY);
 
-      const isMobile = width < 640;
-      const topSafe = isMobile ? 72 : 68;
-      const bottomSafe = isMobile ? Math.min(height * 0.34, 285) : Math.min(height * 0.28, 220);
-      const availH = Math.max(220, height - topSafe - bottomSafe);
-      const cx = width * 0.5;
-      const cy = topSafe + availH * 0.5;
-      const rx = isMobile
-        ? Math.min(width * 0.46, availH * 0.72)
-        : Math.min(width * 0.44, availH * 0.86);
-      const ry = isMobile
-        ? Math.min(availH * 0.46, Math.max(rx * 0.78, availH * 0.38))
-        : Math.min(availH * 0.46, rx * 0.56);
+      const { isShortLandscape, cx, cy, rx, ry, pitchH } = computeFieldGeometry(width, height);
 
       // Animated Stadium Crowd Dots
       const exciteBoost = 1 + anim.crowdExcitement * 3.5;
@@ -499,7 +506,6 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       }
       ctx.globalAlpha = 1;
 
-      const pitchH = Math.max(125, ry * 0.92);
       const pitchY = cy - pitchH / 2;
       const topCreaseY = pitchY + pitchH * 0.14;
       const botCreaseY = pitchY + pitchH * 0.86;
@@ -566,7 +572,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
 
       // Wicketkeeper
       const wkX = cx;
-      const wkY = botCreaseY + 34;
+      const wkY = botCreaseY + (isShortLandscape ? 18 : 34);
       ctx.fillStyle = bowlJersey;
       ctx.beginPath();
       ctx.arc(wkX, wkY, 6.5, 0, Math.PI * 2);
@@ -775,6 +781,8 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
     return () => {
       cancelAnimationFrame(rafId);
       observer.disconnect();
+      window.removeEventListener('resize', updateSize);
+      window.removeEventListener('orientationchange', updateSize);
     };
   }, []);
 

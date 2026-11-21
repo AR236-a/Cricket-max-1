@@ -162,7 +162,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-20 flex flex-col items-center justify-start sm:justify-center p-3 sm:p-6 overflow-y-auto">
+    <div className="fixed inset-0 z-20 flex flex-col items-center justify-start sm:justify-center land:!justify-start p-3 sm:p-6 land:p-3 overflow-y-auto">
       <button
         type="button"
         onClick={() => {
@@ -170,7 +170,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
           else if (screen === 'tournamentSetup') onNavigate('tournamentSelect');
           else onNavigate('menu');
         }}
-        className="self-start mb-2 sm:mb-0 sm:fixed sm:top-4 sm:left-4 z-30 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#09132a]/92 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-300 transition-colors text-xs font-semibold tracking-wider whitespace-nowrap cursor-pointer shrink-0"
+        className="self-start mb-2 sm:mb-0 land:!static land:self-start land:mb-1.5 sm:fixed sm:top-4 sm:left-4 z-30 inline-flex items-center gap-2 px-3.5 py-2 land:px-3 land:py-1.5 rounded-lg bg-[#09132a]/92 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-300 transition-colors text-xs font-semibold tracking-wider whitespace-nowrap cursor-pointer shrink-0"
       >
         <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
         {screen === 'tournamentHub' ? 'MENU' : 'BACK'}
@@ -178,16 +178,16 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
 
       {/* 1. TOURNAMENT & SERIES CATALOG */}
       {screen === 'tournamentSelect' && (
-        <main className="w-full max-w-3xl flex flex-col items-center pt-2 sm:pt-10 pb-4">
-          <h2 className="font-display text-4xl sm:text-5xl font-bold tracking-wider text-amber-400 mb-2 text-center">
+        <main className="w-full max-w-3xl flex flex-col items-center pt-2 sm:pt-10 land:pt-0 pb-4">
+          <h2 className="font-display text-4xl sm:text-5xl land:text-3xl font-bold tracking-wider text-amber-400 mb-2 land:mb-1 text-center">
             TOURNAMENTS & SERIES
           </h2>
-          <p className="text-xs sm:text-sm text-cyan-300/90 mb-5 text-center">
+          <p className="text-xs sm:text-sm text-cyan-300/90 mb-5 land:mb-3 text-center">
             World Cup Structures, IPL Playoffs, and 3 or 5-Test Iconic Rivalries
           </p>
 
           {tournament && (
-            <div className="w-full mb-4 px-4 py-3 rounded-xl bg-emerald-950/55 border border-emerald-400/60 flex flex-wrap items-center justify-between gap-3">
+            <div className="w-full mb-4 land:mb-3 px-4 py-3 land:py-2 rounded-xl bg-emerald-950/55 border border-emerald-400/60 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <TeamBadge team={getTeamById(tournament.userTeamId)} size="sm" />
                 <div>
@@ -210,16 +210,16 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
             </div>
           )}
 
-          <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3.5 land:gap-2.5">
             {TOURNAMENT_CATALOG.map((item) => (
               <button
                 key={item.type}
                 type="button"
                 onClick={() => handleChooseType(item.type)}
-                className="flex flex-col items-start text-left gap-2 p-5 rounded-xl bg-[#0b1530]/95 border border-cyan-500/35 hover:border-amber-400 hover:bg-[#101f44] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
+                className="flex flex-col items-start text-left gap-2 land:gap-1 p-5 land:p-3.5 rounded-xl bg-[#0b1530]/95 border border-cyan-500/35 hover:border-amber-400 hover:bg-[#101f44] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
               >
                 <div className="flex items-center justify-between w-full gap-2">
-                  <span className="font-display text-2xl font-bold tracking-wide text-amber-400">
+                  <span className="font-display text-2xl land:text-xl font-bold tracking-wide text-amber-400">
                     {item.title}
                   </span>
                   {item.isTest ? (
@@ -238,18 +238,18 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
 
       {/* 2. TOURNAMENT / SERIES SETUP */}
       {screen === 'tournamentSetup' && (
-        <main className="w-full max-w-xl flex flex-col items-center pt-2 sm:pt-10 pb-4">
-          <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-wider text-amber-400 mb-1 text-center">
+        <main className="w-full max-w-xl land:max-w-2xl flex flex-col items-center pt-2 sm:pt-10 land:pt-0 pb-4">
+          <h2 className="font-display text-3xl sm:text-4xl land:text-2xl font-bold tracking-wider text-amber-400 mb-1 text-center">
             {activeCatalog.title.toUpperCase()}
           </h2>
-          <p className="text-xs text-cyan-300 mb-5 text-center">{activeCatalog.subtitle}</p>
+          <p className="text-xs text-cyan-300 mb-5 land:mb-3 text-center">{activeCatalog.subtitle}</p>
 
           {/* Select Your Team */}
-          <div className="w-full mb-4">
+          <div className="w-full mb-4 land:mb-3">
             <div className="text-xs font-semibold tracking-wider uppercase text-slate-300 mb-2">
               Choose Your Squad
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[30vh] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 land:grid-cols-3 gap-2 max-h-[30vh] land:max-h-none overflow-y-auto land:overflow-visible pr-1">
               {activeCatalog.eligibleTeamIds.map((tid) => {
                 const team = getTeamById(tid);
                 const selected = selectedTeamId === tid;
@@ -424,9 +424,9 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
 
       {/* 3. ACTIVE TOURNAMENT / SERIES HUB */}
       {screen === 'tournamentHub' && tournament && (
-        <main className="w-full max-w-5xl min-h-0 sm:h-[88vh] flex flex-col gap-3 pt-1 sm:pt-10 pb-6 sm:pb-0">
+        <main className="w-full max-w-5xl min-h-0 sm:h-[88vh] land:h-auto flex flex-col gap-3 pt-1 sm:pt-10 land:pt-0 pb-6 sm:pb-0 land:pb-4">
           {/* Top Hub Header */}
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-xl bg-[#0b1530]/95 border border-cyan-500/35">
+          <div className="flex flex-wrap items-center justify-between gap-3 land:gap-2 px-4 land:px-3 py-3 land:py-2 rounded-xl bg-[#0b1530]/95 border border-cyan-500/35">
             <div className="flex items-center gap-3">
               <TeamBadge team={getTeamById(tournament.userTeamId)} size="md" />
               <div>

@@ -27,7 +27,7 @@ export const PWAInstallButton: React.FC = () => {
           type="button"
           onClick={() => setShowGuide(true)}
           data-testid="pwa-offline-guide-btn"
-          className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-5 rounded-lg bg-[#0a1732]/90 border border-emerald-400/55 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-300 font-semibold tracking-widest uppercase text-xs transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-amber-400"
+          className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-5 land:px-3 rounded-lg bg-[#0a1732]/90 border border-emerald-400/55 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-300 font-semibold tracking-widest uppercase text-xs transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-amber-400"
         >
           {isIOS ? (
             <Smartphone className="w-4 h-4" aria-hidden="true" />
@@ -43,9 +43,9 @@ export const PWAInstallButton: React.FC = () => {
           role="dialog"
           aria-modal="true"
           aria-label="Install Cricket Max for Offline Play"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#020612]/85 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#020612]/85 p-4 land:p-2"
         >
-          <div className="w-full max-w-sm rounded-xl bg-[#0b1530] border-2 border-cyan-400/70 p-6 text-left space-y-4">
+          <div className="w-full max-w-sm max-h-[92dvh] overflow-y-auto rounded-xl bg-[#0b1530] border-2 border-cyan-400/70 p-6 land:p-4 text-left space-y-4 land:space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-display text-2xl font-bold tracking-wider text-amber-400">
                 CRICKET MAX · OFFLINE PLAY
@@ -104,7 +104,7 @@ export const OfflineIndicator: React.FC = () => {
     <div
       role="status"
       data-testid="offline-indicator"
-      className="pointer-events-none fixed top-[154px] right-3 sm:top-[104px] sm:right-4 z-40 flex items-center gap-1.5 rounded-lg bg-amber-500/95 px-2.5 py-1 text-[11px] font-semibold text-slate-950 shadow-lg border border-amber-200/80"
+      className="pointer-events-none fixed top-[154px] right-3 sm:top-[104px] sm:right-4 land:top-10 land:right-2.5 z-40 flex items-center gap-1.5 rounded-lg bg-amber-500/95 px-2.5 py-1 text-[11px] font-semibold text-slate-950 shadow-lg border border-amber-200/80"
     >
       <WifiOff className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
       <span className="hidden sm:inline">Offline Mode · Local Cache</span>
