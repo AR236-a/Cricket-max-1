@@ -74,7 +74,7 @@ export const PWAInstallButton: React.FC = () => {
             ) : (
               <div className="space-y-2.5 text-xs text-slate-200 leading-relaxed">
                 <p>
-                  <strong className="text-emerald-300">Cricket Max</strong> caches all game assets and 2025 squads locally via its Service Worker so you can play without internet.
+                  <strong className="text-emerald-300">Cricket Max</strong> caches all game assets and 2026 squads locally via its Service Worker so you can play without internet.
                 </p>
                 <p className="text-slate-300">
                   To save as a standalone desktop or Android app named <strong className="text-amber-300">Cricket Max</strong>, click your browser&apos;s <strong className="text-cyan-300">Install</strong> icon in the address bar or browser menu (<strong className="text-white">Save &amp; Share → Install Cricket Max</strong>).

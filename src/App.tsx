@@ -17,6 +17,8 @@ import {
   isPlayerBattingNow,
   isSpinDelivery,
   resolveDelivery,
+  selectNextBatter,
+  selectNextBowler,
   startNextInnings,
   startTestNewDay,
 } from './game/cricketEngine';
@@ -491,6 +493,7 @@ export default function App() {
         aiThinking ||
         match.isPaused ||
         match.pendingMilestonePopup ||
+        match.pendingBatterPopup ||
         match.pendingOverPopup ||
         match.pendingDayPopup ||
         screen !== 'playing'
@@ -543,6 +546,7 @@ export default function App() {
       aiThinking ||
       match.isPaused ||
       match.pendingMilestonePopup ||
+      match.pendingBatterPopup ||
       match.pendingOverPopup ||
       match.pendingDayPopup ||
       screen !== 'playing'
@@ -644,6 +648,21 @@ export default function App() {
     setScreen('playing');
   }, [clearTimers]);
 
+  const handleSelectNextBatter = useCallback((batterIndex: number) => {
+    soundFx.playClick();
+    setMatch((prev) => (prev ? selectNextBatter(prev, batterIndex) : prev));
+  }, []);
+
+  const handleSelectNextBowler = useCallback((bowlerName: string) => {
+    soundFx.playClick();
+    const style = getBowlingStyle(bowlerName);
+    setSelectedDeliveryType((cur) => {
+      if (style === 'spin') return isSpinDelivery(cur) ? cur : 'off_spin';
+      return isSpinDelivery(cur) ? 'fast' : cur;
+    });
+    setMatch((prev) => (prev ? selectNextBowler(prev, bowlerName) : prev));
+  }, []);
+
   const handleDismissOverPopup = useCallback(() => {
     soundFx.playClick();
     setMatch((prev) => (prev ? dismissOverPopup(prev) : prev));
@@ -678,6 +697,7 @@ export default function App() {
       aiThinking ||
       match.isPaused ||
       match.pendingMilestonePopup ||
+      match.pendingBatterPopup ||
       match.pendingOverPopup ||
       match.pendingDayPopup ||
       screen !== 'playing'
@@ -956,6 +976,7 @@ export default function App() {
         }
         if (
           match.isPaused ||
+          match.pendingBatterPopup ||
           match.pendingOverPopup ||
           match.pendingDayPopup
         ) {
@@ -1004,6 +1025,7 @@ export default function App() {
         isPaused={Boolean(
           match?.isPaused ||
             match?.pendingMilestonePopup ||
+            match?.pendingBatterPopup ||
             match?.pendingOverPopup ||
             match?.pendingDayPopup
         )}
@@ -1083,6 +1105,8 @@ export default function App() {
         onSelectBowlingSide={handleSelectBowlingSide}
         onBowl={handleBowl}
         onDeclareInnings={handleDeclareInnings}
+        onSelectNextBatter={handleSelectNextBatter}
+        onSelectNextBowler={handleSelectNextBowler}
         onDismissOverPopup={handleDismissOverPopup}
         onDismissMilestonePopup={handleDismissMilestonePopup}
         onProceedToNewDay={handleProceedToNewDay}

@@ -61,6 +61,8 @@ interface GameHudProps {
   onSelectBowlingSide: (side: BowlingSide) => void;
   onBowl: () => void;
   onDeclareInnings: () => void;
+  onSelectNextBatter: (batterIndex: number) => void;
+  onSelectNextBowler: (bowlerName: string) => void;
   onDismissOverPopup: () => void;
   onDismissMilestonePopup: () => void;
   onProceedToNewDay: () => void;
@@ -101,6 +103,8 @@ export const GameHud: React.FC<GameHudProps> = ({
   onSelectBowlingSide,
   onBowl,
   onDeclareInnings,
+  onSelectNextBatter,
+  onSelectNextBowler,
   onDismissOverPopup,
   onDismissMilestonePopup,
   onProceedToNewDay,
@@ -113,6 +117,7 @@ export const GameHud: React.FC<GameHudProps> = ({
   onExitToMenu,
 }) => {
   const [showScorecard, setShowScorecard] = useState(false);
+  const [showOpeningBowlerPicker, setShowOpeningBowlerPicker] = useState(false);
 
   const active = match ? getActiveInnings(match) : null;
   const activeBowlerStyle = active ? getBowlingStyle(active.bowlerName) : 'pace';
@@ -127,6 +132,12 @@ export const GameHud: React.FC<GameHudProps> = ({
     }
   }, [active?.bowlerName, activeBowlerStyle, selectedDeliveryType, onSelectDeliveryType]);
 
+  useEffect(() => {
+    if (!active || active.bowlerOversBalls > 0 || screen !== 'playing') {
+      setShowOpeningBowlerPicker(false);
+    }
+  }, [active?.bowlerOversBalls, screen]);
+
   if (!match || !active || (screen !== 'playing' && screen !== 'inningsBreak' && screen !== 'result')) {
     return null;
   }
@@ -138,16 +149,25 @@ export const GameHud: React.FC<GameHudProps> = ({
   const strikerHand = striker ? getBattingHand(striker.name) : 'right';
   const nonStrikerHand = nonStriker ? getBattingHand(nonStriker.name) : 'right';
   const playerBatting = isPlayerBattingNow(match);
+  const userControlsBowling = match.mode === 'pvp' || active.bowlingTeamId === match.homeTeamId;
   const currentBowlingSide: BowlingSide = match.bowlingSide ?? 'over';
   const hasBlockingPopup =
     Boolean(match.pendingMilestonePopup) ||
+    Boolean(match.pendingBatterPopup) ||
     Boolean(match.pendingOverPopup) ||
     Boolean(match.pendingDayPopup);
   const controlsLocked =
-    isAnimatingBall || aiThinking || match.isPaused || screen !== 'playing' || hasBlockingPopup;
+    isAnimatingBall ||
+    aiThinking ||
+    match.isPaused ||
+    screen !== 'playing' ||
+    hasBlockingPopup ||
+    showOpeningBowlerPicker;
   const isTest = match.format === 'test';
   const testLeadText = getTestLeadText(match);
   const canDeclare = isTest && match.inningsNumber < 4 && playerBatting && !controlsLocked;
+  const canSwapOpeningBowler =
+    userControlsBowling && active.ballsBowled === 0 && active.bowlerOversBalls === 0 && !controlsLocked;
   const effectiveBowlingTab: 'pace' | 'spin' = activeBowlerStyle;
 
   const rr = calculateRunRate(active.runs, active.ballsBowled);
@@ -361,9 +381,19 @@ export const GameHud: React.FC<GameHudProps> = ({
                 Declare
               </button>
             )}
+            {canSwapOpeningBowler && (
+              <button
+                type="button"
+                data-testid="opening-bowler-change-btn"
+                onClick={() => setShowOpeningBowlerPicker(true)}
+                className="pointer-events-auto px-2 py-1 rounded-md bg-cyan-500/20 border border-cyan-400/70 text-cyan-200 hover:bg-cyan-400 hover:text-slate-950 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              >
+                Change
+              </button>
+            )}
             <div
               className={`px-2.5 sm:px-3 py-1 rounded-md bg-[#060f24]/85 border border-cyan-500/30 text-[11px] sm:text-xs text-slate-200 font-mono-num flex items-center gap-1.5 min-w-0 ${
-                canDeclare ? '' : 'max-w-[162px] sm:max-w-none'
+                canDeclare || canSwapOpeningBowler ? '' : 'max-w-[162px] sm:max-w-none'
               }`}
             >
               <span className="hidden sm:inline shrink-0">Bowler: </span>
@@ -920,9 +950,167 @@ export const GameHud: React.FC<GameHudProps> = ({
         </div>
       )}
 
+      {/* NEXT BATTER SELECTION POPUP (ON WICKET DOWN) */}
+      {match.pendingBatterPopup &&
+        !match.pendingMilestonePopup &&
+        screen === 'playing' && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Select Next Batter"
+          data-testid="next-batter-popup"
+          className="pointer-events-auto fixed inset-0 z-35 bg-[#020612]/85 flex items-center justify-center p-4"
+        >
+          {(() => {
+            const prompt = match.pendingBatterPopup;
+            const survivingIndex =
+              prompt.replacingSlot === 'nonStriker' ? active.strikerIndex : active.nonStrikerIndex;
+            const survivingBatter = active.batters[survivingIndex];
+            const availableBatters = active.batters
+              .map((b, idx) => ({ batter: b, idx }))
+              .filter(({ batter, idx }) => !batter.out && idx !== survivingIndex);
+
+            return (
+              <div className="animate-modal-pop w-full max-w-md max-h-[88vh] rounded-xl bg-[#0b1530] border-2 border-amber-400/80 p-5 flex flex-col gap-4 shadow-[0_0_36px_rgba(250,204,21,0.28)]">
+                <div className="text-center space-y-1 border-b border-slate-700/60 pb-3">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/50 text-[10px] font-mono-num font-bold uppercase tracking-widest text-rose-300">
+                    Wicket #{prompt.wickets} · {batTeam.code} {active.runs}/{active.wickets}
+                  </div>
+                  <h2 className="font-display text-3xl font-bold tracking-wider text-amber-400">
+                    CHOOSE NEXT BATTER
+                  </h2>
+                  <p className="text-xs text-slate-300">
+                    <span className="text-rose-300 font-semibold">{prompt.dismissedBatterName}</span>{' '}
+                    ({prompt.dismissedKind ?? 'Out'}) · Partner:{' '}
+                    <span className="text-cyan-300 font-semibold">
+                      {survivingBatter?.name} {survivingBatter?.runs ?? 0}({survivingBatter?.balls ?? 0})
+                    </span>
+                  </p>
+                </div>
+
+                <div
+                  data-testid="next-batter-list"
+                  className="overflow-y-auto space-y-1.5 pr-1"
+                >
+                  {availableBatters.map(({ batter, idx }) => {
+                    const hand = getBattingHand(batter.name);
+                    const isRecommended = idx === prompt.selectedBatterIndex;
+                    const isBowler = batTeam.bowlers.includes(batter.name);
+                    return (
+                      <button
+                        key={batter.name}
+                        type="button"
+                        data-testid={`select-batter-${idx}`}
+                        onClick={() => onSelectNextBatter(idx)}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
+                          isRecommended
+                            ? 'bg-amber-400/15 border-amber-400 text-white hover:bg-amber-400/25'
+                            : 'bg-[#070f24] border-cyan-500/30 text-slate-200 hover:border-cyan-300 hover:bg-[#0e1f45]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono-num text-[11px] text-slate-400 w-5 shrink-0">
+                            #{idx + 1}
+                          </span>
+                          <span className="text-sm font-semibold truncate">{batter.name}</span>
+                          {isRecommended && (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 text-[9px] font-mono-num font-bold uppercase shrink-0">
+                              Next
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isBowler && (
+                            <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[9px] font-mono-num uppercase">
+                              {getBowlingStyle(batter.name) === 'spin' ? 'SPIN' : 'PACE'}
+                            </span>
+                          )}
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-mono-num font-bold ${
+                              hand === 'left'
+                                ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40'
+                                : 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/40'
+                            }`}
+                          >
+                            {hand === 'left' ? 'LHB' : 'RHB'}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* OPENING OVER BOWLER PICKER (AT 0.0 WHEN USER BOWLS) */}
+      {showOpeningBowlerPicker && !hasBlockingPopup && screen === 'playing' && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Choose Opening Bowler"
+          data-testid="opening-bowler-popup"
+          className="pointer-events-auto fixed inset-0 z-35 bg-[#020612]/85 flex items-center justify-center p-4"
+        >
+          <div className="animate-modal-pop w-full max-w-md max-h-[86vh] rounded-xl bg-[#0b1530] border-2 border-cyan-400/80 p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
+              <div>
+                <h2 className="font-display text-2xl font-bold tracking-wider text-amber-400">
+                  SELECT OPENING BOWLER
+                </h2>
+                <p className="text-xs text-cyan-300">{bowlTeam.name} Bowling Attack</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close opening bowler picker"
+                onClick={() => setShowOpeningBowlerPicker(false)}
+                className="w-8 h-8 rounded-md bg-[#101e42] border border-cyan-500/35 text-slate-200 hover:border-cyan-300 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-1.5 overflow-y-auto pr-1">
+              {bowlTeam.bowlers.map((bName) => {
+                const isSelected = active.bowlerName === bName;
+                const style = getBowlingStyle(bName);
+                return (
+                  <button
+                    key={bName}
+                    type="button"
+                    onClick={() => {
+                      onSelectNextBowler(bName);
+                      setShowOpeningBowlerPicker(false);
+                    }}
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-cyan-400/20 border-cyan-300 text-white'
+                        : 'bg-[#070f24] border-cyan-500/30 text-slate-200 hover:border-cyan-300'
+                    }`}
+                  >
+                    <span className="text-sm font-semibold truncate">{bName}</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-mono-num font-bold uppercase shrink-0 ${
+                        style === 'spin'
+                          ? 'bg-purple-500/25 text-purple-200 border border-purple-400/50'
+                          : 'bg-amber-500/25 text-amber-200 border border-amber-400/50'
+                      }`}
+                    >
+                      {style.toUpperCase()}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* END OF OVER POPUP */}
       {match.pendingOverPopup &&
         !match.pendingMilestonePopup &&
+        !match.pendingBatterPopup &&
         !match.pendingDayPopup &&
         screen === 'playing' && (
         <div
@@ -932,7 +1120,7 @@ export const GameHud: React.FC<GameHudProps> = ({
           data-testid="over-complete-popup"
           className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/80 flex items-center justify-center p-4"
         >
-          <div className="w-full max-w-md rounded-xl bg-[#0b1530] border-2 border-cyan-400/70 p-6 text-center space-y-4 shadow-[0_0_36px_rgba(56,189,248,0.25)]">
+          <div className="animate-modal-pop w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl bg-[#0b1530] border-2 border-cyan-400/70 p-5 sm:p-6 text-center space-y-4 shadow-[0_0_36px_rgba(56,189,248,0.25)]">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/40 text-[11px] font-mono-num font-bold uppercase tracking-widest text-cyan-300">
               End of Over {match.pendingOverPopup.overNumber}
             </div>
@@ -993,22 +1181,86 @@ export const GameHud: React.FC<GameHudProps> = ({
               </div>
             </div>
 
-            <div className="text-xs text-slate-300 space-y-1">
-              <div>
-                Next Bowler:{' '}
-                <span className="text-cyan-300 font-semibold">
-                  {match.pendingOverPopup.nextBowlerName}
-                </span>{' '}
-                <span className="font-mono-num text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-amber-300">
-                  {match.pendingOverPopup.nextBowlerStyle.toUpperCase()}
-                </span>
-              </div>
-              {isChase && runsNeeded !== null && ballsRemaining !== null && (
-                <div className="font-mono-num text-amber-300 font-semibold">
-                  Need {runsNeeded} runs in {ballsRemaining} balls
+            {userControlsBowling ? (
+              <div
+                data-testid="next-bowler-selector"
+                className="p-3 rounded-lg bg-[#070f24] border border-cyan-500/30 space-y-2 text-left"
+              >
+                <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+                  <span>Choose Next Bowler ({bowlTeam.code})</span>
+                  <span className="font-mono-num text-amber-300 truncate ml-2">
+                    {match.pendingOverPopup.nextBowlerName}
+                  </span>
                 </div>
-              )}
-            </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[168px] overflow-y-auto pr-0.5">
+                  {bowlTeam.bowlers.map((bName) => {
+                    const isSelected = match.pendingOverPopup?.nextBowlerName === bName;
+                    const bowledLast =
+                      bowlTeam.bowlers.length > 1 &&
+                      match.pendingOverPopup?.bowlerName === bName;
+                    const spell = active.bowlerSpells?.[bName];
+                    const style = getBowlingStyle(bName);
+                    return (
+                      <button
+                        key={bName}
+                        type="button"
+                        disabled={bowledLast}
+                        onClick={() => onSelectNextBowler(bName)}
+                        className={`flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-md border text-xs transition-colors ${
+                          bowledLast
+                            ? 'bg-[#081129] border-slate-800 text-slate-500 opacity-55 cursor-not-allowed'
+                            : isSelected
+                            ? 'bg-cyan-400/20 border-cyan-300 text-white cursor-pointer'
+                            : 'bg-[#0c1a3a] border-slate-700/70 text-slate-200 hover:border-cyan-400/70 cursor-pointer'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="font-semibold truncate">{bName}</div>
+                          <div className="text-[10px] font-mono-num text-slate-400">
+                            {bowledLast
+                              ? 'Bowled last over'
+                              : spell && spell.balls > 0
+                              ? `${spell.wickets}-${spell.runs} (${formatOvers(spell.balls)} ov)`
+                              : '0-0 (0.0 ov)'}
+                          </div>
+                        </div>
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-mono-num font-bold uppercase shrink-0 ${
+                            style === 'spin'
+                              ? 'bg-purple-500/25 text-purple-200 border border-purple-400/40'
+                              : 'bg-amber-500/25 text-amber-200 border border-amber-400/40'
+                          }`}
+                        >
+                          {style.toUpperCase()}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {isChase && runsNeeded !== null && ballsRemaining !== null && (
+                  <div className="pt-1 text-center text-xs font-mono-num text-amber-300 font-semibold">
+                    Need {runsNeeded} runs in {ballsRemaining} balls
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-xs text-slate-300 space-y-1">
+                <div>
+                  Next Bowler:{' '}
+                  <span className="text-cyan-300 font-semibold">
+                    {match.pendingOverPopup.nextBowlerName}
+                  </span>{' '}
+                  <span className="font-mono-num text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-amber-300">
+                    {match.pendingOverPopup.nextBowlerStyle.toUpperCase()}
+                  </span>
+                </div>
+                {isChase && runsNeeded !== null && ballsRemaining !== null && (
+                  <div className="font-mono-num text-amber-300 font-semibold">
+                    Need {runsNeeded} runs in {ballsRemaining} balls
+                  </div>
+                )}
+              </div>
+            )}
 
             <button
               type="button"
@@ -1024,6 +1276,7 @@ export const GameHud: React.FC<GameHudProps> = ({
       {/* TEST MODE: DAY COMPLETED POPUP WITH SCORECARD */}
       {match.pendingDayPopup?.phase === 'day_completed' &&
         !match.pendingMilestonePopup &&
+        !match.pendingBatterPopup &&
         screen === 'playing' && (
         <div
           role="dialog"
@@ -1136,6 +1389,7 @@ export const GameHud: React.FC<GameHudProps> = ({
       {/* TEST MODE: NEW DAY CONTINUOUS START POPUP */}
       {match.pendingDayPopup?.phase === 'new_day' &&
         !match.pendingMilestonePopup &&
+        !match.pendingBatterPopup &&
         screen === 'playing' && (
         <div
           role="dialog"
@@ -1144,7 +1398,7 @@ export const GameHud: React.FC<GameHudProps> = ({
           data-testid="new-day-popup"
           className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/88 flex items-center justify-center p-4"
         >
-          <div className="w-full max-w-md rounded-xl bg-[#0b1530] border-2 border-cyan-400/75 p-6 text-center space-y-5">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl bg-[#0b1530] border-2 border-cyan-400/75 p-6 text-center space-y-5">
             <div className="mx-auto w-14 h-14 rounded-full bg-amber-400/15 border border-amber-400/50 flex items-center justify-center">
               <Sun className="w-8 h-8 text-amber-400" aria-hidden="true" />
             </div>
@@ -1175,6 +1429,43 @@ export const GameHud: React.FC<GameHudProps> = ({
                 </div>
               )}
             </div>
+
+            {userControlsBowling && (
+              <div className="p-3 rounded-lg bg-[#070f24] border border-cyan-500/30 space-y-2 text-left">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+                  Choose Day {match.pendingDayPopup.nextDay} Opening Bowler
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[140px] overflow-y-auto">
+                  {bowlTeam.bowlers.map((bName) => {
+                    const isSelected = active.bowlerName === bName;
+                    const bowledLast =
+                      bowlTeam.bowlers.length > 1 &&
+                      match.pendingDayPopup?.lastBowlerName === bName;
+                    const style = getBowlingStyle(bName);
+                    return (
+                      <button
+                        key={bName}
+                        type="button"
+                        disabled={bowledLast}
+                        onClick={() => onSelectNextBowler(bName)}
+                        className={`flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-md border text-xs transition-colors ${
+                          bowledLast
+                            ? 'bg-[#081129] border-slate-800 text-slate-500 opacity-55 cursor-not-allowed'
+                            : isSelected
+                            ? 'bg-cyan-400/20 border-cyan-300 text-white cursor-pointer'
+                            : 'bg-[#0c1a3a] border-slate-700/70 text-slate-200 hover:border-cyan-400/70 cursor-pointer'
+                        }`}
+                      >
+                        <span className="font-semibold truncate">{bName}</span>
+                        <span className="text-[9px] font-mono-num text-cyan-300 uppercase shrink-0">
+                          {bowledLast ? 'Last Ov' : style.toUpperCase()}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <button
               type="button"

@@ -151,11 +151,21 @@ export interface OverCompletedSummary {
   teamWickets: number;
 }
 
+export interface NextBatterPrompt {
+  dismissedBatterName: string;
+  dismissedKind?: WicketKind;
+  teamId: string;
+  wickets: number;
+  replacingSlot: 'striker' | 'nonStriker';
+  selectedBatterIndex: number;
+}
+
 export interface TestDaySummary {
   completedDay: number;
   nextDay: number;
   runsToday: number;
   wicketsToday: number;
+  lastBowlerName?: string;
   phase: 'day_completed' | 'new_day';
 }
 
@@ -224,6 +234,7 @@ export interface MatchState {
   bowlingSide?: BowlingSide;
   pendingOverPopup: OverCompletedSummary | null;
   pendingDayPopup: TestDaySummary | null;
+  pendingBatterPopup?: NextBatterPrompt | null;
   pendingMilestonePopup?: MilestoneCelebration | null;
   tossCaller: 'home' | 'away';
   tossWinner: 'home' | 'away' | null;

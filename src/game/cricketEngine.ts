@@ -16,6 +16,7 @@ import {
   MatchState,
   MilestoneCelebration,
   MilestoneKind,
+  NextBatterPrompt,
   OverProgressPoint,
   PitchCondition,
   ShotType,
@@ -254,6 +255,7 @@ export function createInitialMatchState(params: {
     bowlingSide: 'over',
     pendingOverPopup: null,
     pendingDayPopup: null,
+    pendingBatterPopup: null,
     pendingMilestonePopup: null,
     tossCaller: 'home',
     tossWinner: params.tossWinner ?? 'home',
@@ -891,6 +893,7 @@ export function applyDeliveryToMatch(
   const nextBatters = active.batters.map((b) => ({ ...b }));
   const striker = nextBatters[active.strikerIndex];
   const prevBatterRuns = striker.runs;
+  const dismissedBatterName = striker.name;
   striker.balls += 1;
 
   let runs = active.runs;
@@ -902,6 +905,7 @@ export function applyDeliveryToMatch(
   let nextBatterIndex = active.nextBatterIndex;
   let bowlerRunsConceded = active.bowlerRunsConceded;
   let bowlerWickets = active.bowlerWickets;
+  let wicketFellWithNextNeeded = false;
 
   if (resolution.isWicket) {
     wickets += 1;
@@ -910,9 +914,15 @@ export function applyDeliveryToMatch(
     striker.dismissal = resolution.wicketKind;
     partnershipRuns = 0;
     partnershipBalls = 0;
-    if (wickets < 10 && nextBatterIndex < nextBatters.length) {
-      strikerIndex = nextBatterIndex;
-      nextBatterIndex += 1;
+    if (wickets < 10) {
+      const nextUnusedIdx = nextBatters.findIndex(
+        (b, idx) => !b.out && idx !== nonStrikerIndex
+      );
+      if (nextUnusedIdx !== -1) {
+        strikerIndex = nextUnusedIdx;
+        nextBatterIndex = Math.min(nextBatters.length, nextUnusedIdx + 1);
+        wicketFellWithNextNeeded = true;
+      }
     }
   } else {
     runs += resolution.runs;
@@ -1032,7 +1042,11 @@ export function applyDeliveryToMatch(
       },
     ];
 
-    bowlerName = bowlTeam.bowlers[overIndex % bowlTeam.bowlers.length] ?? active.bowlerName;
+    const candidateIdx = overIndex % bowlTeam.bowlers.length;
+    bowlerName = bowlTeam.bowlers[candidateIdx] ?? active.bowlerName;
+    if (bowlerName === overBowlerName && bowlTeam.bowlers.length > 1) {
+      bowlerName = bowlTeam.bowlers[(candidateIdx + 1) % bowlTeam.bowlers.length];
+    }
     bowlerOversBalls = 0;
     const nextSpell = bowlerSpells[bowlerName];
     bowlerRunsConceded = nextSpell?.runs ?? 0;
@@ -1088,6 +1102,19 @@ export function applyDeliveryToMatch(
   };
   const nextLog = [newEntry, ...state.commentaryLog].slice(0, 30);
 
+  const userControlsBatting = state.mode === 'pvp' || active.battingTeamId === state.homeTeamId;
+  const pendingBatterPrompt: NextBatterPrompt | null =
+    wicketFellWithNextNeeded && userControlsBatting
+      ? {
+          dismissedBatterName,
+          dismissedKind: resolution.wicketKind,
+          teamId: active.battingTeamId,
+          wickets,
+          replacingSlot: overCompleted ? 'nonStriker' : 'striker',
+          selectedBatterIndex: overCompleted ? nonStrikerIndex : strikerIndex,
+        }
+      : null;
+
   let nextState = updateMatchWithInnings(
     {
       ...state,
@@ -1097,6 +1124,7 @@ export function applyDeliveryToMatch(
       pvpTurnPhase: 'bowl_select',
       pendingOverPopup: null,
       pendingDayPopup: null,
+      pendingBatterPopup: pendingBatterPrompt,
       pendingMilestonePopup: milestonePopup,
     },
     updatedInnings
@@ -1127,6 +1155,7 @@ export function applyDeliveryToMatch(
           ...nextState,
           pendingOverPopup: null,
           pendingDayPopup: null,
+          pendingBatterPopup: null,
           matchComplete: true,
           winnerTeamId: chasingTeam.id,
           resultSummary: `${chasingTeam.name} won by ${wktsRemaining} ${wktsRemaining === 1 ? 'wicket' : 'wickets'}!`,
@@ -1143,6 +1172,7 @@ export function applyDeliveryToMatch(
           ...nextState,
           pendingOverPopup: null,
           pendingDayPopup: null,
+          pendingBatterPopup: null,
           matchComplete: true,
           winnerTeamId: 'draw',
           resultSummary: `Match Drawn! Time ran out at the end of Day 5 (${state.oversPerDay} ov/day).`,
@@ -1165,6 +1195,7 @@ export function applyDeliveryToMatch(
             wicketsToday: 0,
             pendingOverPopup: null,
             pendingDayPopup: null,
+            pendingBatterPopup: null,
           },
         };
       }
@@ -1174,6 +1205,7 @@ export function applyDeliveryToMatch(
           ...evalRes.nextState,
           pendingOverPopup: null,
           pendingDayPopup: null,
+          pendingBatterPopup: null,
         },
       };
     }
@@ -1197,6 +1229,7 @@ export function applyDeliveryToMatch(
             nextDay: state.currentDay + 1,
             runsToday,
             wicketsToday,
+            lastBowlerName: overBowlerName,
             phase: 'day_completed',
           },
           commentaryLog: [stumpsEntry, ...nextState.commentaryLog].slice(0, 30),
@@ -1228,6 +1261,7 @@ export function applyDeliveryToMatch(
         ...nextState,
         target: inningsDone ? runs + 1 : state.target,
         pendingOverPopup: inningsDone ? null : completedOverSummary,
+        pendingBatterPopup: inningsDone ? null : nextState.pendingBatterPopup,
       },
       enteredInningsBreak: inningsDone,
       matchFinished: false,
@@ -1268,10 +1302,98 @@ export function applyDeliveryToMatch(
       winnerTeamId,
       resultSummary,
       pendingOverPopup: innings2Done ? null : completedOverSummary,
+      pendingBatterPopup: innings2Done ? null : nextState.pendingBatterPopup,
     },
     enteredInningsBreak: false,
     matchFinished: innings2Done,
   };
+}
+
+export function selectNextBatter(state: MatchState, batterIndex: number): MatchState {
+  const prompt = state.pendingBatterPopup;
+  if (!prompt) return state;
+
+  const active = getActiveInnings(state);
+  const candidate = active.batters[batterIndex];
+  const survivingIndex =
+    prompt.replacingSlot === 'nonStriker' ? active.strikerIndex : active.nonStrikerIndex;
+
+  if (!candidate || candidate.out || batterIndex === survivingIndex) {
+    return { ...state, pendingBatterPopup: null };
+  }
+
+  const updatedInnings: InningsState = {
+    ...active,
+    strikerIndex: prompt.replacingSlot === 'striker' ? batterIndex : active.strikerIndex,
+    nonStrikerIndex: prompt.replacingSlot === 'nonStriker' ? batterIndex : active.nonStrikerIndex,
+  };
+
+  return updateMatchWithInnings(
+    {
+      ...state,
+      pendingBatterPopup: null,
+      lastCommentary: `${candidate.name} walks out to join ${active.batters[survivingIndex]?.name ?? 'partner'} at the crease.`,
+    },
+    updatedInnings
+  );
+}
+
+export function selectNextBowler(state: MatchState, bowlerName: string): MatchState {
+  const active = getActiveInnings(state);
+  const bowlTeam = getTeamById(active.bowlingTeamId);
+  if (!bowlTeam.bowlers.includes(bowlerName)) return state;
+
+  // Enforce cricket rule: cannot bowl consecutive overs if team has > 1 bowler
+  if (bowlTeam.bowlers.length > 1) {
+    if (state.pendingOverPopup && state.pendingOverPopup.bowlerName === bowlerName) {
+      return state;
+    }
+    if (
+      state.pendingDayPopup?.phase === 'new_day' &&
+      state.pendingDayPopup.lastBowlerName === bowlerName
+    ) {
+      return state;
+    }
+  }
+
+  // Only allow changing bowler between overs (or before first ball of an over)
+  if (!state.pendingOverPopup && state.pendingDayPopup?.phase !== 'new_day' && active.bowlerOversBalls > 0) {
+    return state;
+  }
+
+  const spell = active.bowlerSpells?.[bowlerName];
+  const nextStyle = getBowlingStyle(bowlerName);
+  const updatedInnings: InningsState = {
+    ...active,
+    bowlerName,
+    bowlerOversBalls: 0,
+    bowlerRunsConceded: spell?.runs ?? 0,
+    bowlerWickets: spell?.wickets ?? 0,
+  };
+
+  const nextPendingDeliveryType: DeliveryType =
+    nextStyle === 'spin'
+      ? isSpinDelivery(state.pendingDeliveryType)
+        ? state.pendingDeliveryType
+        : 'off_spin'
+      : isSpinDelivery(state.pendingDeliveryType)
+      ? 'fast'
+      : state.pendingDeliveryType;
+
+  return updateMatchWithInnings(
+    {
+      ...state,
+      pendingDeliveryType: nextPendingDeliveryType,
+      pendingOverPopup: state.pendingOverPopup
+        ? {
+            ...state.pendingOverPopup,
+            nextBowlerName: bowlerName,
+            nextBowlerStyle: nextStyle,
+          }
+        : null,
+    },
+    updatedInnings
+  );
 }
 
 export function dismissOverPopup(state: MatchState): MatchState {
@@ -1386,6 +1508,10 @@ export function startNextInnings(state: MatchState): MatchState {
       inningsNumber: 2,
       target,
       innings2,
+      pendingBatterPopup: null,
+      pendingOverPopup: null,
+      pendingDayPopup: null,
+      pendingMilestonePopup: null,
       pvpTurnPhase: 'bowl_select',
       lastOutcome: null,
       lastCommentary: startMsg,
@@ -1433,6 +1559,10 @@ export function startNextInnings(state: MatchState): MatchState {
     innings2: nextInnNum === 2 ? newInn : state.innings2,
     innings3: nextInnNum === 3 ? newInn : state.innings3,
     innings4: nextInnNum === 4 ? newInn : state.innings4,
+    pendingBatterPopup: null,
+    pendingOverPopup: null,
+    pendingDayPopup: null,
+    pendingMilestonePopup: null,
     pvpTurnPhase: 'bowl_select',
     lastOutcome: null,
     lastCommentary: startMsg,
@@ -1505,6 +1635,9 @@ export function simulateFullMatch(params: {
     state = applied.nextState;
     if (state.pendingMilestonePopup) {
       state = dismissMilestonePopup(state);
+    }
+    if (state.pendingBatterPopup) {
+      state = selectNextBatter(state, state.pendingBatterPopup.selectedBatterIndex);
     }
     if (state.pendingOverPopup) {
       state = dismissOverPopup(state);

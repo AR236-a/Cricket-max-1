@@ -24,7 +24,7 @@ export default defineConfig(() => {
           name: 'Cricket Max',
           short_name: 'Cricket Max',
           description:
-            'Cricket Max — Offline-ready 2D Stadium Cricket with 2025 International & IPL squads, Test Mode, Tournaments, and live analytics.',
+            'Cricket Max — Offline-ready 2D Stadium Cricket with 2026 International & IPL squads, Test Mode, Tournaments, and live analytics.',
           theme_color: '#030916',
           background_color: '#030916',
           display: 'standalone',
