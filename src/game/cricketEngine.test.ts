@@ -13,10 +13,13 @@ import {
   dismissMilestonePopup,
   dismissOverPopup,
   formatOvers,
+  getMaxOversPerBowler,
+  isBowlerQuotaExhausted,
   isSpinDelivery,
   resolveDelivery,
   selectNextBatter,
   selectNextBowler,
+  simulateFullMatch,
   startSecondInnings,
   startTestNewDay,
 } from './cricketEngine';
@@ -733,5 +736,117 @@ test('user can choose next batter after wicket down and choose bowler after ever
   assert.equal(bowlMatch.pendingOverPopup, null);
   assert.equal(bowlMatch.innings1.bowlerName, 'Jasprit Bumrah');
 });
+
+test('limited-overs bowler quota caps T20 at 4 overs and ODI at 10 overs per bowler', () => {
+  assert.equal(getMaxOversPerBowler('limited', 20), 4);
+  assert.equal(getMaxOversPerBowler('limited', 50), 10);
+  assert.equal(getMaxOversPerBowler('limited', 10), 2);
+  assert.equal(getMaxOversPerBowler('limited', 5), 1);
+  assert.equal(getMaxOversPerBowler('limited', 15), 3);
+  assert.equal(getMaxOversPerBowler('test', 90), null);
+
+  // Simulated full 20-over T20 match: every bowler must bowl <= 4 overs (24 balls)
+  const t20Sim = simulateFullMatch({
+    format: 'limited',
+    difficulty: 'medium',
+    homeTeamId: 'ind',
+    awayTeamId: 'aus',
+    totalOvers: 20,
+    rng: () => 0.45,
+  });
+  for (const inn of [t20Sim.innings1, t20Sim.innings2]) {
+    if (!inn) continue;
+    for (const [name, spell] of Object.entries(inn.bowlerSpells)) {
+      assert.ok(
+        spell.balls <= 24,
+        `T20 bowler ${name} bowled ${spell.balls} balls (> 24 max)`
+      );
+    }
+  }
+
+  // Simulated full 50-over ODI match: every bowler must bowl <= 10 overs (60 balls)
+  const odiSim = simulateFullMatch({
+    format: 'limited',
+    difficulty: 'medium',
+    homeTeamId: 'ind',
+    awayTeamId: 'aus',
+    totalOvers: 50,
+    rng: () => 0.45,
+  });
+  for (const inn of [odiSim.innings1, odiSim.innings2]) {
+    if (!inn) continue;
+    for (const [name, spell] of Object.entries(inn.bowlerSpells)) {
+      assert.ok(
+        spell.balls <= 60,
+        `ODI bowler ${name} bowled ${spell.balls} balls (> 60 max)`
+      );
+    }
+  }
+
+  // Step-test manual selection rejection once a T20 bowler reaches 4 overs (24 balls)
+  let match = createInitialMatchState({
+    mode: 'ai',
+    format: 'limited',
+    difficulty: 'medium',
+    homeTeamId: 'ind',
+    awayTeamId: 'aus',
+    totalOvers: 20,
+    homeBatsFirst: false,
+  });
+
+  const targetBowler = 'Jasprit Bumrah';
+  const partnerBowler = 'Arshdeep Singh';
+  const thirdBowler = 'Hardik Pandya';
+
+  // Bowl 4 overs with targetBowler alternated with partnerBowler (overs 1, 3, 5, 7)
+  for (let over = 0; over < 8; over++) {
+    const activeBowler = over % 2 === 0 ? targetBowler : partnerBowler;
+    if (match.pendingOverPopup) {
+      match = selectNextBowler(match, activeBowler);
+      match = dismissOverPopup(match);
+    } else if (over === 0) {
+      match = selectNextBowler(match, activeBowler);
+    }
+    assert.equal(match.innings1.bowlerName, activeBowler);
+
+    for (let b = 0; b < 6; b++) {
+      match = applyDeliveryToMatch(match, {
+        runs: 1,
+        isWicket: false,
+        isBoundaryFour: false,
+        isBoundarySix: false,
+        outcomeLabel: '1 RUN',
+        ballSymbol: '1',
+        commentary: 'Single',
+        hitAngleRad: 0,
+        hitDistanceFactor: 0.4,
+        shotUsed: 'drive',
+        deliveryUsed: 'fast',
+        lengthUsed: 'good',
+      }).nextState;
+    }
+  }
+
+  // After over 8 (partnerBowler), targetBowler has bowled 4 overs (24 balls)
+  assert.equal(match.innings1.bowlerSpells[targetBowler]?.balls, 24);
+  assert.equal(isBowlerQuotaExhausted(match.innings1, targetBowler, 'limited', 20), true);
+  assert.equal(isBowlerQuotaExhausted(match.innings1, thirdBowler, 'limited', 20), false);
+
+  // Auto-selection for over 9 must skip exhausted targetBowler
+  assert.notEqual(match.pendingOverPopup?.nextBowlerName, targetBowler);
+  assert.notEqual(match.innings1.bowlerName, targetBowler);
+
+  // Manual selection attempting to assign exhausted targetBowler must be rejected
+  const beforeAttempt = match.innings1.bowlerName;
+  const rejected = selectNextBowler(match, targetBowler);
+  assert.equal(rejected.innings1.bowlerName, beforeAttempt);
+  assert.equal(rejected.pendingOverPopup?.nextBowlerName, beforeAttempt);
+
+  // Assigning an eligible bowler succeeds
+  const accepted = selectNextBowler(match, thirdBowler);
+  assert.equal(accepted.innings1.bowlerName, thirdBowler);
+  assert.equal(accepted.pendingOverPopup?.nextBowlerName, thirdBowler);
+});
+
 
 

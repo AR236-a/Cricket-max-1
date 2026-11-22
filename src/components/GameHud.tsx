@@ -5,6 +5,7 @@ import {
   DELIVERY_META,
   formatOvers,
   getActiveInnings,
+  getMaxOversPerBowler,
   getTestLeadText,
   isPlayerBattingNow,
   isSpinDelivery,
@@ -182,6 +183,12 @@ export const GameHud: React.FC<GameHudProps> = ({
     hasBlockingPopup ||
     showOpeningBowlerPicker;
   const isTest = match.format === 'test';
+  const activeMaxOvers = isTest
+    ? match.oversPerDay
+    : match.inningsNumber === 1
+    ? match.innings1MaxOvers ?? match.totalOvers
+    : match.innings2MaxOvers ?? match.totalOvers;
+  const maxOversPerBowler = getMaxOversPerBowler(match.format, activeMaxOvers);
   const weather: WeatherCondition = match.weatherCondition ?? 'clear';
   const weatherMeta = WEATHER_META[weather];
   const testLeadText = getTestLeadText(match);
@@ -889,6 +896,11 @@ export const GameHud: React.FC<GameHudProps> = ({
                     <TeamBadge team={bowlTeam} size="sm" />
                     <span className="text-sm font-semibold text-white">{bowlTeam.name} (Bowling XI)</span>
                   </div>
+                  {maxOversPerBowler !== null && (
+                    <span className="font-mono-num text-[11px] font-semibold text-cyan-300 shrink-0">
+                      Max {maxOversPerBowler} ov
+                    </span>
+                  )}
                 </div>
                 <div className="space-y-1">
                   {bowlTeam.batters.map((playerName, i) => {
@@ -1116,7 +1128,10 @@ export const GameHud: React.FC<GameHudProps> = ({
                 <h2 className="font-display text-2xl land:text-xl font-bold tracking-wider text-amber-400">
                   SELECT OPENING BOWLER
                 </h2>
-                <p className="text-xs text-cyan-300">{bowlTeam.name} Bowling Attack</p>
+                <p className="text-xs text-cyan-300">
+                  {bowlTeam.name} Bowling Attack
+                  {maxOversPerBowler !== null ? ` · Max ${maxOversPerBowler} ov/bowler` : ''}
+                </p>
               </div>
               <button
                 type="button"
@@ -1330,29 +1345,50 @@ export const GameHud: React.FC<GameHudProps> = ({
                   data-testid="next-bowler-selector"
                   className="p-3 land:p-2.5 rounded-lg bg-[#070f24] border border-cyan-500/30 space-y-2 land:space-y-1.5 text-left land:col-span-7"
                 >
-                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-cyan-300">
-                    <span>Choose Next Bowler ({bowlTeam.code})</span>
-                    <span className="font-mono-num text-amber-300 truncate ml-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-cyan-300 gap-2">
+                    <span className="truncate">
+                      Choose Next Bowler ({bowlTeam.code})
+                      {maxOversPerBowler !== null ? (
+                        <span
+                          data-testid="bowler-quota-badge"
+                          className="ml-1.5 text-[10px] font-mono-num text-cyan-200/85"
+                        >
+                          · Max {maxOversPerBowler} ov
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="font-mono-num text-amber-300 truncate shrink-0">
                       {match.pendingOverPopup.nextBowlerName}
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[168px] land:max-h-[132px] overflow-y-auto pr-0.5">
                     {bowlTeam.bowlers.map((bName) => {
                       const isSelected = match.pendingOverPopup?.nextBowlerName === bName;
+                      const spell = active.bowlerSpells?.[bName];
+                      const spellBalls = spell?.balls ?? 0;
+                      const quotaDone = maxOversPerBowler !== null && spellBalls >= maxOversPerBowler * 6;
+                      const hasAlternative = bowlTeam.bowlers.some(
+                        (b) =>
+                          b !== match.pendingOverPopup?.bowlerName &&
+                          (maxOversPerBowler === null ||
+                            (active.bowlerSpells?.[b]?.balls ?? 0) < maxOversPerBowler * 6)
+                      );
                       const bowledLast =
                         bowlTeam.bowlers.length > 1 &&
-                        match.pendingOverPopup?.bowlerName === bName;
-                      const spell = active.bowlerSpells?.[bName];
+                        match.pendingOverPopup?.bowlerName === bName &&
+                        hasAlternative;
+                      const isDisabled = bowledLast || quotaDone;
                       const style = getBowlingStyle(bName);
                       return (
                         <button
                           key={bName}
                           type="button"
-                          disabled={bowledLast}
+                          disabled={isDisabled}
                           data-selected={isSelected ? 'true' : 'false'}
+                          data-quota-done={quotaDone ? 'true' : 'false'}
                           onClick={() => onSelectNextBowler(bName)}
                           className={`flex items-center justify-between gap-1 px-2 py-2 land:py-1.5 rounded-md border text-left text-xs ${
-                            bowledLast
+                            isDisabled
                               ? 'bg-[#081129] border-slate-800 text-slate-500 opacity-55 cursor-not-allowed'
                               : isSelected
                               ? 'bg-cyan-400/20 border-cyan-300 text-white cursor-pointer'
@@ -1362,11 +1398,13 @@ export const GameHud: React.FC<GameHudProps> = ({
                           <div className="min-w-0 flex-1">
                             <div className="font-semibold text-[11px] sm:text-xs truncate">{bName}</div>
                             <div className="text-[10px] font-mono-num text-slate-400">
-                              {bowledLast
-                                ? 'Bowled last over'
+                              {quotaDone
+                                ? `Quota done (${Math.floor(spellBalls / 6)}/${maxOversPerBowler} ov)`
+                                : bowledLast
+                                ? `Bowled last over (${formatOvers(spellBalls)}${maxOversPerBowler !== null ? `/${maxOversPerBowler}` : ''} ov)`
                                 : spell && spell.balls > 0
-                                ? `${spell.wickets}-${spell.runs} (${formatOvers(spell.balls)} ov)`
-                                : '0-0 (0.0 ov)'}
+                                ? `${spell.wickets}-${spell.runs} (${formatOvers(spell.balls)}${maxOversPerBowler !== null ? `/${maxOversPerBowler}` : ''} ov)`
+                                : `0-0 (0.0${maxOversPerBowler !== null ? `/${maxOversPerBowler}` : ''} ov)`}
                             </div>
                           </div>
                           <span

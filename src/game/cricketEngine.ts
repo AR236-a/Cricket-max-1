@@ -420,6 +420,48 @@ export function getTestLeadText(state: MatchState): string | null {
   return `Scores level`;
 }
 
+export function getMaxOversPerBowler(format: MatchFormat, totalOvers: number): number | null {
+  if (format === 'test') return null;
+  if (totalOvers <= 0) return 1;
+  return Math.max(1, Math.ceil(totalOvers / 5));
+}
+
+export function isBowlerQuotaExhausted(
+  innings: InningsState,
+  bowlerName: string,
+  format: MatchFormat,
+  totalOvers: number
+): boolean {
+  const maxOvers = getMaxOversPerBowler(format, totalOvers);
+  if (maxOvers === null) return false;
+  const spellBalls = innings.bowlerSpells?.[bowlerName]?.balls ?? 0;
+  return spellBalls >= maxOvers * 6;
+}
+
+function pickNextEligibleBowler(params: {
+  bowlers: string[];
+  overIndex: number;
+  prevBowlerName: string;
+  spells: Record<string, BowlerSpellStat>;
+  format: MatchFormat;
+  totalOvers: number;
+}): string {
+  const { bowlers, overIndex, prevBowlerName, spells, format, totalOvers } = params;
+  if (bowlers.length === 0) return prevBowlerName;
+  const maxOvers = getMaxOversPerBowler(format, totalOvers);
+  const maxBalls = maxOvers !== null ? maxOvers * 6 : Infinity;
+  const startIdx = overIndex % bowlers.length;
+  const rotated = bowlers.map((_, i) => bowlers[(startIdx + i) % bowlers.length]);
+  const notExhausted = (name: string) => (spells[name]?.balls ?? 0) < maxBalls;
+
+  return (
+    rotated.find((name) => name !== prevBowlerName && notExhausted(name)) ??
+    rotated.find((name) => notExhausted(name)) ??
+    rotated.find((name) => name !== prevBowlerName) ??
+    rotated[0]
+  );
+}
+
 export function isPlayerBattingNow(state: MatchState): boolean {
   const active = getActiveInnings(state);
   if (state.mode === 'pvp') {
@@ -1095,11 +1137,21 @@ export function applyDeliveryToMatch(
       },
     ];
 
-    const candidateIdx = overIndex % bowlTeam.bowlers.length;
-    bowlerName = bowlTeam.bowlers[candidateIdx] ?? active.bowlerName;
-    if (bowlerName === overBowlerName && bowlTeam.bowlers.length > 1) {
-      bowlerName = bowlTeam.bowlers[(candidateIdx + 1) % bowlTeam.bowlers.length];
-    }
+    const activeMaxOversForQuota =
+      state.format === 'test'
+        ? state.oversPerDay
+        : state.inningsNumber === 1
+        ? state.innings1MaxOvers ?? state.totalOvers
+        : state.innings2MaxOvers ?? state.totalOvers;
+
+    bowlerName = pickNextEligibleBowler({
+      bowlers: bowlTeam.bowlers,
+      overIndex,
+      prevBowlerName: overBowlerName,
+      spells: bowlerSpells,
+      format: state.format,
+      totalOvers: activeMaxOversForQuota,
+    });
     bowlerOversBalls = 0;
     const nextSpell = bowlerSpells[bowlerName];
     bowlerRunsConceded = nextSpell?.runs ?? 0;
@@ -1446,6 +1498,34 @@ export function applyDeliveryToMatch(
         lastCommentary: rainMsg,
         commentaryLog: [dlsEntry, ...nextState.commentaryLog].slice(0, 30),
       };
+
+      if (!inningsDone && overCompleted) {
+        const adjustedBowler = pickNextEligibleBowler({
+          bowlers: bowlTeam.bowlers,
+          overIndex: completedOversCount,
+          prevBowlerName: overBowlerName,
+          spells: bowlerSpells,
+          format: state.format,
+          totalOvers: reduction.revisedOvers,
+        });
+        if (adjustedBowler !== bowlerName) {
+          const adjSpell = bowlerSpells[adjustedBowler];
+          nextState = updateMatchWithInnings(nextState, {
+            ...getActiveInnings(nextState),
+            bowlerName: adjustedBowler,
+            bowlerOversBalls: 0,
+            bowlerRunsConceded: adjSpell?.runs ?? 0,
+            bowlerWickets: adjSpell?.wickets ?? 0,
+          });
+          if (completedOverSummary) {
+            completedOverSummary = {
+              ...completedOverSummary,
+              nextBowlerName: adjustedBowler,
+              nextBowlerStyle: getBowlingStyle(adjustedBowler),
+            };
+          }
+        }
+      }
     }
 
     const r1 = nextState.innings1ResourcesPct ?? 100;
@@ -1569,6 +1649,34 @@ export function applyDeliveryToMatch(
       lastCommentary: rainMsg,
       commentaryLog: [dlsEntry, ...nextState.commentaryLog].slice(0, 30),
     };
+
+    if (!innings2Done && overCompleted) {
+      const adjustedBowler = pickNextEligibleBowler({
+        bowlers: bowlTeam.bowlers,
+        overIndex: completedOversCount,
+        prevBowlerName: overBowlerName,
+        spells: bowlerSpells,
+        format: state.format,
+        totalOvers: reduction.revisedOvers,
+      });
+      if (adjustedBowler !== bowlerName) {
+        const adjSpell = bowlerSpells[adjustedBowler];
+        nextState = updateMatchWithInnings(nextState, {
+          ...getActiveInnings(nextState),
+          bowlerName: adjustedBowler,
+          bowlerOversBalls: 0,
+          bowlerRunsConceded: adjSpell?.runs ?? 0,
+          bowlerWickets: adjSpell?.wickets ?? 0,
+        });
+        if (completedOverSummary) {
+          completedOverSummary = {
+            ...completedOverSummary,
+            nextBowlerName: adjustedBowler,
+            nextBowlerStyle: getBowlingStyle(adjustedBowler),
+          };
+        }
+      }
+    }
   }
 
   let matchComplete = false;
@@ -1663,9 +1771,31 @@ export function selectNextBowler(state: MatchState, bowlerName: string): MatchSt
   });
   if (!bowlTeam.bowlers.includes(bowlerName)) return state;
 
-  // Enforce cricket rule: cannot bowl consecutive overs if team has > 1 bowler
+  const activeMaxOvers =
+    state.format === 'test'
+      ? state.oversPerDay
+      : state.inningsNumber === 1
+      ? state.innings1MaxOvers ?? state.totalOvers
+      : state.innings2MaxOvers ?? state.totalOvers;
+
+  // Enforce limited-overs per-bowler quota (e.g., 4 overs in T20, 10 overs in ODI)
+  if (isBowlerQuotaExhausted(active, bowlerName, state.format, activeMaxOvers)) {
+    return state;
+  }
+
+  // Enforce cricket rule: cannot bowl consecutive overs unless no other non-exhausted bowler exists
   if (bowlTeam.bowlers.length > 1) {
-    if (state.pendingOverPopup && state.pendingOverPopup.bowlerName === bowlerName) {
+    const hasAlternative = (prevBowler: string) =>
+      bowlTeam.bowlers.some(
+        (b) =>
+          b !== prevBowler &&
+          !isBowlerQuotaExhausted(active, b, state.format, activeMaxOvers)
+      );
+    if (
+      state.pendingOverPopup &&
+      state.pendingOverPopup.bowlerName === bowlerName &&
+      hasAlternative(state.pendingOverPopup.bowlerName)
+    ) {
       return state;
     }
     if (

@@ -164,10 +164,16 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
   });
 
   const bgDirtyRef = useRef(true);
+  const scheduleFrameRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     bgDirtyRef.current = true;
+    scheduleFrameRef.current?.();
   }, [isPlaying, pitchCondition, weatherCondition]);
+
+  useEffect(() => {
+    scheduleFrameRef.current?.();
+  }, [isPaused, isRainDelay, strikerHand, bowlingSide, battingTeam, bowlingTeam]);
 
   const particlesRef = useRef<Particle[]>(
     Array.from({ length: 36 }, () => ({
@@ -195,6 +201,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       trauma: 0,
       crowdExcitement: 0,
     };
+    scheduleFrameRef.current?.();
   }, [animTrigger]);
 
   useEffect(() => {
@@ -365,6 +372,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       canvas.height = Math.max(1, Math.floor(height * dpr));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       bgDirtyRef.current = true;
+      scheduleFrameRef.current?.();
     };
     updateSize();
 
@@ -396,11 +404,62 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
     let totalTime = 0;
     let impactSpawnedForId = -1;
     let rafId = 0;
-    let lastDrawTime = 0;
+    let timerId = 0;
+    let rafPending = false;
     let drewPausedFrame = false;
 
+    const scheduleImmediate = () => {
+      if (timerId) {
+        window.clearTimeout(timerId);
+        timerId = 0;
+      }
+      if (!rafPending) {
+        rafPending = true;
+        rafId = requestAnimationFrame(render);
+      }
+    };
+
+    scheduleFrameRef.current = () => {
+      drewPausedFrame = false;
+      scheduleImmediate();
+    };
+
+    const scheduleTail = () => {
+      const {
+        isPlaying: playingNow,
+        isPaused: pausedNow,
+        weatherCondition: weatherNow,
+        isRainDelay: rainNow,
+      } = propsRef.current;
+      const animNow = animStateRef.current;
+      const hasBurst =
+        animNow.active ||
+        animNow.trauma > 0 ||
+        animNow.crowdExcitement > 0 ||
+        particlesRef.current.some((p) => p.active);
+
+      if (pausedNow && !hasBurst && !bgDirtyRef.current) {
+        return;
+      }
+      if (hasBurst) {
+        scheduleImmediate();
+        return;
+      }
+      if (!timerId && !rafPending) {
+        const delay = !playingNow
+          ? 240
+          : weatherNow === 'drizzle' || weatherNow === 'windy' || rainNow
+          ? 70
+          : 180;
+        timerId = window.setTimeout(() => {
+          timerId = 0;
+          scheduleImmediate();
+        }, delay);
+      }
+    };
+
     const render = (now: number) => {
-      rafId = requestAnimationFrame(render);
+      rafPending = false;
 
       const {
         isPlaying: playing,
@@ -432,12 +491,6 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
         return;
       }
 
-      // Throttle idle ambience so compositor & software rendering stay silky-responsive
-      const idleInterval = !playing ? 180 : !anim.active && anim.trauma === 0 ? 75 : 0;
-      if (idleInterval > 0 && !bgDirtyRef.current && now - lastDrawTime < idleInterval) {
-        return;
-      }
-      lastDrawTime = now;
       drewPausedFrame = paused && !hasActiveMotion;
 
       const rawDt = (now - lastTime) / 1000;
@@ -466,6 +519,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       }
 
       if (!playing) {
+        scheduleTail();
         return;
       }
 
@@ -850,11 +904,14 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       }
 
       ctx.restore();
+      scheduleTail();
     };
 
-    rafId = requestAnimationFrame(render);
+    scheduleImmediate();
     return () => {
+      scheduleFrameRef.current = null;
       cancelAnimationFrame(rafId);
+      if (timerId) window.clearTimeout(timerId);
       observer.disconnect();
       window.removeEventListener('resize', updateSize);
       window.removeEventListener('orientationchange', updateSize);
