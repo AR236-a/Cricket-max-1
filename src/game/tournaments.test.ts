@@ -152,17 +152,28 @@ test('ODI World Cup creates 10-team league (45 matches) and completes through Se
   assert.equal(indiaNames.includes('Suryakumar Yadav'), false);
 });
 
-test('IPL Tournament runs 10-team league and 4-match Playoff Bracket (Q1, Eliminator, Q2, Final)', () => {
+test('IPL Tournament runs 14 league matches per team (70 matches) and 4-match Playoff Bracket (Q1, Eliminator, Q2, Final)', () => {
   let ipl = createTournament({
     type: 'ipl',
     userTeamId: 'mi',
     difficulty: 'medium',
   });
   assert.equal(ipl.standings.length, 10);
-  assert.equal(ipl.fixtures.length, 45);
+  assert.equal(ipl.fixtures.length, 70);
+
+  // Every IPL franchise is scheduled for exact 14 league matches
+  for (const row of ipl.standings) {
+    const count = ipl.fixtures.filter(
+      (f) => f.homeTeamId === row.teamId || f.awayTeamId === row.teamId
+    ).length;
+    assert.equal(count, 14, `${row.teamId} should have 14 league fixtures`);
+  }
 
   ipl = simulateStage(ipl);
   assert.equal(ipl.stage, 'knockouts');
+  for (const row of ipl.standings) {
+    assert.equal(row.played, 14, `${row.teamId} should have played 14 league matches`);
+  }
   assert.equal(ipl.fixtures.some((f) => f.round === 'q1'), true);
   assert.equal(ipl.fixtures.some((f) => f.round === 'eliminator'), true);
 
@@ -171,6 +182,7 @@ test('IPL Tournament runs 10-team league and 4-match Playoff Bracket (Q1, Elimin
   assert.ok(ipl.championTeamId);
   assert.equal(ipl.fixtures.some((f) => f.round === 'q2'), true);
   assert.equal(ipl.fixtures.some((f) => f.round === 'final'), true);
+  assert.equal(ipl.fixtures.length, 74);
 });
 
 test('Ashes Cup and Border-Gavaskar Trophy run 5-Test series with 30/60/90 overs/day', () => {

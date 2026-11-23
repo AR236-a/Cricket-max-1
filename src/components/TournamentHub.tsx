@@ -73,8 +73,8 @@ const TOURNAMENT_CATALOG: Array<{
   {
     type: 'ipl',
     title: 'IPL Tournament',
-    subtitle: '10 Franchises · Q1 · Eliminator · Q2 · Final',
-    formatLabel: '20 Overs · 10 IPL Teams',
+    subtitle: '10 Franchises · 14 League Matches Each (70) · Playoffs',
+    formatLabel: '20 Overs · 14 Matches/Team · Q1 · Elim · Q2 · Final',
     eligibleTeamIds: ['mi', 'csk', 'rcb', 'kkr', 'dc', 'rr', 'srh', 'pbks', 'lsg', 'gt'],
     isTest: false,
   },

@@ -53,6 +53,29 @@ function generateRoundRobinPairs(teamIds: string[]): Array<[string, string]> {
   return pairs;
 }
 
+function generateIplLeagueSchedule(teams: string[]): Array<[string, string]> {
+  // Official 10-team IPL format: 14 league matches per team (70 league matches across 14 rounds)
+  const firstLeg = generateRoundRobinPairs(teams);
+  const firstLegReversed = new Set(firstLeg.map(([h, a]) => `${a}:${h}`));
+  const orientReturn = (t1: string, t2: string): [string, string] =>
+    firstLegReversed.has(`${t1}:${t2}`) ? [t1, t2] : [t2, t1];
+
+  const groupA = teams.slice(0, 5);
+  const groupB = teams.slice(5, 10);
+  const returnLeg: Array<[string, string]> = [];
+
+  // 5 return rounds x 5 matches = 25 matches (every team gets +4 intra-group & +1 paired cross-group = 14 matches)
+  for (let r = 0; r < 5; r++) {
+    returnLeg.push(orientReturn(groupA[(r + 1) % 5], groupA[(r + 4) % 5]));
+    returnLeg.push(orientReturn(groupA[(r + 2) % 5], groupA[(r + 3) % 5]));
+    returnLeg.push(orientReturn(groupB[(r + 1) % 5], groupB[(r + 4) % 5]));
+    returnLeg.push(orientReturn(groupB[(r + 2) % 5], groupB[(r + 3) % 5]));
+    returnLeg.push(orientReturn(groupA[r], groupB[r]));
+  }
+
+  return [...firstLeg, ...returnLeg];
+}
+
 export function sortStandings(rows: StandingRow[]): StandingRow[] {
   return [...rows].sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
@@ -329,7 +352,7 @@ export function createTournament(params: {
 
   if (type === 'ipl') {
     const teams = ['mi', 'csk', 'rcb', 'kkr', 'dc', 'rr', 'srh', 'pbks', 'lsg', 'gt'];
-    const pairs = generateRoundRobinPairs(teams);
+    const pairs = generateIplLeagueSchedule(teams);
     const fixtures: TournamentFixture[] = pairs.map(([homeTeamId, awayTeamId], idx) => ({
       id: `ipl-${idx + 1}`,
       round: 'group',
@@ -836,7 +859,7 @@ export function simulateNextMatches(
 ): TournamentState {
   let current = tournament;
   let guard = 0;
-  while (current.stage !== 'complete' && guard < 60) {
+  while (current.stage !== 'complete' && guard < 200) {
     guard += 1;
     const nextPending = current.fixtures.find((f) => !f.completed);
     if (!nextPending) break;
@@ -858,7 +881,7 @@ export function simulateStage(
   const initialStage = tournament.stage;
   let current = tournament;
   let guard = 0;
-  while (current.stage === initialStage && current.stage !== 'complete' && guard < 60) {
+  while (current.stage === initialStage && current.stage !== 'complete' && guard < 200) {
     guard += 1;
     const nextPending = current.fixtures.find((f) => !f.completed);
     if (!nextPending) break;

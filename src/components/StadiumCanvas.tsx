@@ -433,10 +433,11 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       } = propsRef.current;
       const animNow = animStateRef.current;
       const hasBurst =
-        animNow.active ||
-        animNow.trauma > 0 ||
-        animNow.crowdExcitement > 0 ||
-        particlesRef.current.some((p) => p.active);
+        !pausedNow &&
+        (animNow.active ||
+          animNow.trauma > 0 ||
+          animNow.crowdExcitement > 0 ||
+          particlesRef.current.some((p) => p.active));
 
       if (pausedNow && !hasBurst && !bgDirtyRef.current) {
         return;
