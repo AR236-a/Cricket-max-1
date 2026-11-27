@@ -24,7 +24,7 @@ import {
   SPIN_DELIVERY_TYPES,
   WEATHER_META,
 } from '../game/cricketEngine';
-import { computePlayerOfTheMatch } from '../game/awards';
+import { computePostMatchAwards } from '../game/awards';
 import { getDrsAllowance } from '../game/drs';
 import { getBattingHand, getBowlingStyle, getTeamById } from '../game/teams';
 import {
@@ -40,6 +40,7 @@ import {
 } from '../game/types';
 import { DrsThirdUmpireModal } from './DrsThirdUmpireModal';
 import { PitchMapChart } from './PitchMapChart';
+import { PostMatchAwardsModal } from './PostMatchAwardsModal';
 import { RunRateChart } from './RunRateChart';
 import { TeamBadge } from './TeamBadge';
 import {
@@ -170,6 +171,7 @@ export const GameHud: React.FC<GameHudProps> = ({
 }) => {
   const [showScorecard, setShowScorecard] = useState(false);
   const [showOpeningBowlerPicker, setShowOpeningBowlerPicker] = useState(false);
+  const [showAwardsModal, setShowAwardsModal] = useState(false);
 
   const active = match ? getActiveInnings(match) : null;
   const activeBowlerStyle = active ? getBowlingStyle(active.bowlerName) : 'pace';
@@ -189,6 +191,12 @@ export const GameHud: React.FC<GameHudProps> = ({
       setShowOpeningBowlerPicker(false);
     }
   }, [active?.bowlerOversBalls, screen]);
+
+  useEffect(() => {
+    if (screen !== 'result') {
+      setShowAwardsModal(false);
+    }
+  }, [screen]);
 
   if (!match || !active || (screen !== 'playing' && screen !== 'inningsBreak' && screen !== 'result')) {
     return null;
@@ -258,7 +266,8 @@ export const GameHud: React.FC<GameHudProps> = ({
   const topScorer = playedInningsList
     .flatMap((item) => item.inn.batters)
     .sort((a, b) => b.runs - a.runs)[0];
-  const playerOfTheMatch = screen === 'result' ? computePlayerOfTheMatch(match) : null;
+  const postMatchAwards = screen === 'result' ? computePostMatchAwards(match) : null;
+  const playerOfTheMatch = postMatchAwards?.playerOfTheMatch ?? null;
 
   return (
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between">
@@ -2050,7 +2059,7 @@ export const GameHud: React.FC<GameHudProps> = ({
           aria-label="Match Result"
           className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/90 flex items-center justify-center p-4 land:p-2"
         >
-          <div className="w-full max-w-md land:max-w-xl max-h-[92dvh] overflow-y-auto rounded-xl bg-[#0b1530] border border-amber-400/70 p-7 land:p-4 text-center space-y-5 land:space-y-2.5">
+          <div className="w-full max-w-lg land:max-w-2xl max-h-[92dvh] overflow-y-auto rounded-xl bg-[#0b1530] border border-amber-400/70 p-6 sm:p-7 land:p-3.5 text-center space-y-4 land:space-y-2.5">
             <div className="mx-auto w-14 h-14 land:w-10 land:h-10 rounded-full bg-amber-400/15 border border-amber-400/50 flex items-center justify-center">
               <Trophy className="w-8 h-8 land:w-5 land:h-5 text-amber-400" aria-hidden="true" />
             </div>
@@ -2080,22 +2089,59 @@ export const GameHud: React.FC<GameHudProps> = ({
             {playerOfTheMatch ? (
               <div
                 data-testid="potm-award-card"
-                className="p-3 land:p-2.5 rounded-lg bg-[#070f24] border border-amber-400/45 flex items-center justify-between gap-2.5 text-left"
+                className="p-3.5 land:p-2.5 rounded-lg bg-[#070f24] border border-amber-400/55 space-y-2.5 land:space-y-1.5 text-left"
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <TeamBadge team={getTeamById(playerOfTheMatch.teamId)} size="sm" />
-                  <div className="min-w-0">
-                    <div className="inline-flex items-center gap-1 text-[10px] font-mono-num font-bold uppercase tracking-widest text-amber-300">
-                      <Award className="w-3 h-3 text-amber-400" aria-hidden="true" />
-                      Player of the Match
-                    </div>
-                    <div className="text-sm font-bold text-white truncate">
-                      {playerOfTheMatch.playerName}
+                <div className="flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <TeamBadge team={getTeamById(playerOfTheMatch.teamId, teamCtx)} size="sm" />
+                    <div className="min-w-0">
+                      <div className="inline-flex items-center gap-1 text-[10px] font-mono-num font-bold uppercase tracking-widest text-amber-300">
+                        <Award className="w-3 h-3 text-amber-400" aria-hidden="true" />
+                        Player of the Match
+                      </div>
+                      <div className="text-base land:text-sm font-bold text-white truncate">
+                        {playerOfTheMatch.playerName}
+                      </div>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    data-testid="open-awards-modal-btn"
+                    onClick={() => setShowAwardsModal(true)}
+                    className="px-2.5 py-1.5 land:py-1 rounded-md bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/60 text-amber-300 font-mono-num text-[11px] land:text-[10px] font-bold uppercase tracking-wider cursor-pointer shrink-0 whitespace-nowrap"
+                  >
+                    Full Awards ▶
+                  </button>
                 </div>
-                <div className="text-xs font-mono-num font-semibold text-cyan-300 text-right shrink-0">
-                  {playerOfTheMatch.summary}
+
+                <div className="grid grid-cols-3 gap-2 text-center font-mono-num">
+                  <div className="px-2 py-1.5 land:py-1 rounded bg-[#0c1a3a] border border-slate-700/70">
+                    <div className="text-[9px] uppercase tracking-wider text-slate-400">Runs</div>
+                    <div className="text-sm land:text-xs font-bold text-amber-300 tabular-nums">
+                      {playerOfTheMatch.runs ?? 0}
+                      {playerOfTheMatch.notOut && (playerOfTheMatch.ballsFaced ?? 0) > 0 ? '*' : ''}{' '}
+                      <span className="text-[10px] text-slate-400">
+                        ({playerOfTheMatch.ballsFaced ?? 0})
+                      </span>
+                    </div>
+                  </div>
+                  <div className="px-2 py-1.5 land:py-1 rounded bg-[#0c1a3a] border border-slate-700/70">
+                    <div className="text-[9px] uppercase tracking-wider text-slate-400">Wickets</div>
+                    <div className="text-sm land:text-xs font-bold text-rose-400 tabular-nums">
+                      {playerOfTheMatch.wickets ?? 0}
+                      {(playerOfTheMatch.ballsBowled ?? 0) > 0
+                        ? `-${playerOfTheMatch.runsConceded ?? 0}`
+                        : ''}
+                    </div>
+                  </div>
+                  <div className="px-2 py-1.5 land:py-1 rounded bg-[#0c1a3a] border border-slate-700/70">
+                    <div className="text-[9px] uppercase tracking-wider text-slate-400">
+                      Strike Rate
+                    </div>
+                    <div className="text-sm land:text-xs font-bold text-cyan-300 tabular-nums">
+                      {(playerOfTheMatch.strikeRate ?? 0).toFixed(1)}
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -2139,6 +2185,17 @@ export const GameHud: React.FC<GameHudProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* POST-MATCH AWARDS PRESENTATION MODAL */}
+      {screen === 'result' && showAwardsModal && postMatchAwards && (
+        <PostMatchAwardsModal
+          awards={postMatchAwards}
+          resultSummary={match.resultSummary}
+          format={match.format}
+          totalOvers={match.totalOvers}
+          onClose={() => setShowAwardsModal(false)}
+        />
       )}
     </div>
   );

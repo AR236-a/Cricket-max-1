@@ -1,10 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computePlayerOfTheMatch, computePlayerOfTheTournament } from './awards';
+import {
+  computePlayerOfTheMatch,
+  computePlayerOfTheTournament,
+  computePostMatchAwards,
+} from './awards';
 import { applyDeliveryToMatch, createInitialMatchState, startSecondInnings } from './cricketEngine';
 import { createTournament, simulateNextMatches } from './tournaments';
 
-test('computePlayerOfTheMatch selects standout performer and awards winning bonus', () => {
+test('computePlayerOfTheMatch selects standout performer with structured runs, wickets, strike rate, and honors', () => {
   let match = createInitialMatchState({
     mode: 'ai',
     difficulty: 'medium',
@@ -14,7 +18,7 @@ test('computePlayerOfTheMatch selects standout performer and awards winning bonu
     homeBatsFirst: true,
   });
 
-  // Striker hits 36 off 6 balls in innings 1
+  // Striker hits 36 off 6 balls in innings 1 (SR = 600.0)
   for (let i = 0; i < 6; i++) {
     match = applyDeliveryToMatch(match, {
       runs: 6,
@@ -59,6 +63,17 @@ test('computePlayerOfTheMatch selects standout performer and awards winning bonu
   assert.ok(potm);
   assert.equal(potm.teamId, 'ind');
   assert.ok(potm.summary.length > 0);
+  assert.equal(typeof potm.runs, 'number');
+  assert.equal(typeof potm.wickets, 'number');
+  assert.equal(typeof potm.strikeRate, 'number');
+
+  const awards = computePostMatchAwards(match);
+  assert.ok(awards);
+  assert.equal(awards.bestBatter?.runs, 36);
+  assert.equal(awards.bestBatter?.strikeRate, 600);
+  assert.equal(awards.bestBowler?.wickets, 6);
+  assert.equal(awards.bestBowler?.economy, 0);
+  assert.ok(awards.topPerformers.length >= 2);
 });
 
 test('computePlayerOfTheTournament returns Player of the Series / Tournament for completed BGT and IPL', () => {

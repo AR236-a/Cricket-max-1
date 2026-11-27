@@ -77,11 +77,48 @@ export interface MilestoneCelebration {
   oversText?: string;
 }
 
+export interface PlayerMatchStatLine {
+  playerName: string;
+  teamId: string;
+  runs: number;
+  ballsFaced: number;
+  fours: number;
+  sixes: number;
+  notOut: boolean;
+  strikeRate: number;
+  wickets: number;
+  ballsBowled: number;
+  runsConceded: number;
+  oversBowled: string;
+  economy: number | null;
+  points: number;
+  summary: string;
+}
+
 export interface PlayerOfMatchAward {
   playerName: string;
   teamId: string;
   points: number;
   summary: string;
+  runs?: number;
+  ballsFaced?: number;
+  fours?: number;
+  sixes?: number;
+  notOut?: boolean;
+  strikeRate?: number;
+  wickets?: number;
+  ballsBowled?: number;
+  runsConceded?: number;
+  oversBowled?: string;
+  economy?: number | null;
+  roleTag?: 'All-Rounder' | 'Batter' | 'Bowler';
+}
+
+export interface PostMatchAwardsSummary {
+  playerOfTheMatch: PlayerOfMatchAward;
+  bestBatter: PlayerMatchStatLine | null;
+  bestBowler: PlayerMatchStatLine | null;
+  topPerformers: PlayerMatchStatLine[];
 }
 
 export interface PlayerOfTournamentAward {

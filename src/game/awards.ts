@@ -1,7 +1,9 @@
 import {
   MatchState,
+  PlayerMatchStatLine,
   PlayerOfMatchAward,
   PlayerOfTournamentAward,
+  PostMatchAwardsSummary,
   TournamentPlayerStat,
   TournamentState,
 } from './types';
@@ -12,7 +14,7 @@ function formatOversCount(balls: number): string {
   return `${completed}.${rem}`;
 }
 
-export function computePlayerOfTheMatch(match: MatchState): PlayerOfMatchAward | null {
+function buildMatchPlayerTallies(match: MatchState): PlayerMatchStatLine[] {
   const tally: Record<
     string,
     {
@@ -98,8 +100,6 @@ export function computePlayerOfTheMatch(match: MatchState): PlayerOfMatchAward |
   }
 
   const allEntries = Object.values(tally);
-  if (allEntries.length === 0) return null;
-
   for (const entry of allEntries) {
     if (
       match.winnerTeamId &&
@@ -111,26 +111,110 @@ export function computePlayerOfTheMatch(match: MatchState): PlayerOfMatchAward |
     }
   }
 
-  allEntries.sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
-    if (b.runs !== a.runs) return b.runs - a.runs;
-    return b.wickets - a.wickets;
-  });
+  return allEntries
+    .map((e) => {
+      const strikeRate =
+        e.ballsFaced > 0 ? Number(((e.runs / e.ballsFaced) * 100).toFixed(1)) : 0;
+      const oversBowled = formatOversCount(e.ballsBowled);
+      const economy =
+        e.ballsBowled > 0 ? Number(((e.runsConceded / e.ballsBowled) * 6).toFixed(2)) : null;
 
-  const winner = allEntries[0];
-  const parts: string[] = [];
-  if (winner.ballsFaced > 0 || winner.runs > 0) {
-    parts.push(`${winner.runs}${winner.notOut ? '*' : ''}(${winner.ballsFaced})`);
-  }
-  if (winner.ballsBowled > 0) {
-    parts.push(`${winner.wickets}-${winner.runsConceded} (${formatOversCount(winner.ballsBowled)} ov)`);
-  }
+      const parts: string[] = [];
+      if (e.ballsFaced > 0 || e.runs > 0) {
+        parts.push(`${e.runs}${e.notOut ? '*' : ''}(${e.ballsFaced})`);
+      }
+      if (e.ballsBowled > 0) {
+        parts.push(`${e.wickets}-${e.runsConceded} (${oversBowled} ov)`);
+      }
 
+      return {
+        playerName: e.playerName,
+        teamId: e.teamId,
+        runs: e.runs,
+        ballsFaced: e.ballsFaced,
+        fours: e.fours,
+        sixes: e.sixes,
+        notOut: e.notOut,
+        strikeRate,
+        wickets: e.wickets,
+        ballsBowled: e.ballsBowled,
+        runsConceded: e.runsConceded,
+        oversBowled,
+        economy,
+        points: Number(e.points.toFixed(1)),
+        summary: parts.join(' & ') || 'Match Impact',
+      };
+    })
+    .sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.runs !== a.runs) return b.runs - a.runs;
+      return b.wickets - a.wickets;
+    });
+}
+
+function resolveRoleTag(entry: PlayerMatchStatLine): 'All-Rounder' | 'Batter' | 'Bowler' {
+  if (entry.runs >= 15 && entry.wickets >= 1) return 'All-Rounder';
+  if (entry.ballsBowled > 0 && (entry.ballsFaced === 0 || entry.wickets * 22 > entry.runs)) {
+    return 'Bowler';
+  }
+  return 'Batter';
+}
+
+export function computePlayerOfTheMatch(match: MatchState): PlayerOfMatchAward | null {
+  const ranked = buildMatchPlayerTallies(match);
+  if (ranked.length === 0) return null;
+
+  const winner = ranked[0];
   return {
     playerName: winner.playerName,
     teamId: winner.teamId,
-    points: Number(winner.points.toFixed(1)),
-    summary: parts.join(' & ') || 'Match Impact',
+    points: winner.points,
+    summary: winner.summary,
+    runs: winner.runs,
+    ballsFaced: winner.ballsFaced,
+    fours: winner.fours,
+    sixes: winner.sixes,
+    notOut: winner.notOut,
+    strikeRate: winner.strikeRate,
+    wickets: winner.wickets,
+    ballsBowled: winner.ballsBowled,
+    runsConceded: winner.runsConceded,
+    oversBowled: winner.oversBowled,
+    economy: winner.economy,
+    roleTag: resolveRoleTag(winner),
+  };
+}
+
+export function computePostMatchAwards(match: MatchState): PostMatchAwardsSummary | null {
+  const ranked = buildMatchPlayerTallies(match);
+  if (ranked.length === 0) return null;
+
+  const potm = computePlayerOfTheMatch(match);
+  if (!potm) return null;
+
+  const batters = ranked
+    .filter((p) => p.ballsFaced > 0 || p.runs > 0)
+    .sort((a, b) => {
+      if (b.runs !== a.runs) return b.runs - a.runs;
+      if (b.strikeRate !== a.strikeRate) return b.strikeRate - a.strikeRate;
+      return b.points - a.points;
+    });
+
+  const bowlers = ranked
+    .filter((p) => p.ballsBowled > 0)
+    .sort((a, b) => {
+      if (b.wickets !== a.wickets) return b.wickets - a.wickets;
+      const econA = a.economy ?? 99;
+      const econB = b.economy ?? 99;
+      if (econA !== econB) return econA - econB;
+      return a.runsConceded - b.runsConceded;
+    });
+
+  return {
+    playerOfTheMatch: potm,
+    bestBatter: batters[0] ?? null,
+    bestBowler: bowlers[0] ?? null,
+    topPerformers: ranked.slice(0, 3),
   };
 }
 
