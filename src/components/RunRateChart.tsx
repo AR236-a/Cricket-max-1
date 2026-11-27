@@ -152,7 +152,11 @@ export const RunRateChart: React.FC<RunRateChartProps> = ({
     <div
       data-testid={isModal ? 'd3-run-rate-chart-expanded' : 'd3-run-rate-chart'}
       className={`pointer-events-auto rounded-xl bg-[#060f24]/92 border border-cyan-500/40 shadow-[0_8px_28px_rgba(2,6,23,0.75)] ${
-        isModal ? 'w-full max-w-lg max-h-[92dvh] overflow-y-auto p-4 land:p-3' : 'w-[274px] p-2.5'
+        isModal
+          ? 'w-full max-w-lg max-h-[92dvh] overflow-y-auto p-4 land:p-3'
+          : expanded
+          ? 'w-[340px] xl:w-[400px] p-3'
+          : 'w-[232px] xl:w-[266px] p-2.5'
       }`}
     >
       {/* Chart Header */}
@@ -364,13 +368,13 @@ export const RunRateChart: React.FC<RunRateChartProps> = ({
 
   return (
     <>
-      {/* Desktop / Tablet docked widget (top-left, clear of the oval pitch; hidden on short mobile landscape) */}
-      <div className="hidden md:block land:!hidden absolute left-3 top-12 z-20">
+      {/* Laptop / Tablet-Landscape docked widget (top-left, clear of the oval pitch; hidden on portrait tablets, phones & short landscape) */}
+      <div className="hidden lg:block land:!hidden absolute left-3 top-11 z-20">
         {renderChartBody(false)}
       </div>
 
-      {/* Mobile & Landscape Phone compact toggle button */}
-      <div className="md:hidden land:!block absolute left-3 top-12 land:left-2.5 land:top-9 z-20 pointer-events-auto">
+      {/* Mobile, Tablet Portrait & Landscape Phone compact toggle button */}
+      <div className="lg:hidden land:!block absolute left-3 top-12 sm:top-12 land:left-2.5 land:top-9 z-20 pointer-events-auto">
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
@@ -383,13 +387,13 @@ export const RunRateChart: React.FC<RunRateChartProps> = ({
         </button>
       </div>
 
-      {/* Mobile / Landscape Phone expanded D3 modal */}
+      {/* Mobile / Tablet Portrait / Landscape Phone expanded D3 modal */}
       {mobileOpen && (
         <div
           role="dialog"
           aria-modal="true"
           aria-label="Run rate and predicted total chart"
-          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/85 flex items-center justify-center p-4 land:p-2 md:hidden land:!flex"
+          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/85 flex items-center justify-center p-4 land:p-2 lg:hidden land:!flex"
         >
           {renderChartBody(true)}
         </div>

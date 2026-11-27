@@ -287,7 +287,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                 </span>
                 <span
                   className={`text-[11px] text-slate-400 font-mono-num whitespace-nowrap land:hidden ${
-                    isTest ? 'inline' : 'hidden md:inline'
+                    isTest ? 'inline' : 'hidden lg:inline'
                   }`}
                 >
                   {isTest ? `(Inn ${match.inningsNumber})` : `(${active.wickets} wkts)`}
@@ -295,15 +295,15 @@ export const GameHud: React.FC<GameHudProps> = ({
                 <span
                   data-testid="hud-batting-drs"
                   title={`${batTeam.code} DRS Reviews Remaining: ${batReviewsLeft}/${drsMaxReviews}`}
-                  className="hidden md:inline land:inline text-[11px] land:text-[10px] font-mono-num font-semibold text-cyan-300/90 tabular-nums whitespace-nowrap"
+                  className="hidden lg:inline land:inline text-[11px] land:text-[10px] font-mono-num font-semibold text-cyan-300/90 tabular-nums whitespace-nowrap"
                 >
                   DRS {batReviewsLeft}/{drsMaxReviews}
                 </span>
               </div>
             </div>
 
-            {/* Center: Overs & Run Rate / Test Day + Pitch + Weather (Desktop / Tablet / Mobile Landscape) */}
-            <div className="hidden sm:flex land:flex flex-col items-center text-center shrink-0 min-w-0">
+            {/* Center: Overs & Run Rate / Test Day + Pitch + Weather (Laptop / Tablet Landscape / Mobile Landscape) */}
+            <div className="hidden lg:flex land:flex flex-col items-center text-center shrink-0 min-w-0">
               {isTest ? (
                 <>
                   <div className="font-mono-num text-base land:text-xs font-bold text-cyan-300 tracking-wide whitespace-nowrap flex items-center gap-2">
@@ -351,7 +351,7 @@ export const GameHud: React.FC<GameHudProps> = ({
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <TeamBadge team={bowlTeam} size="sm" />
-                <div className="text-right hidden sm:block land:block">
+                <div className="text-right hidden lg:block land:block">
                   <div className="text-xs land:text-[10px] font-semibold text-slate-300 leading-tight">
                     {bowlTeam.code}{' '}
                     <span
@@ -415,10 +415,10 @@ export const GameHud: React.FC<GameHudProps> = ({
             </div>
           </div>
 
-          {/* Mobile Portrait Secondary Strip (hidden in mobile landscape where center row fits cleanly) */}
+          {/* Mobile & Tablet Portrait Secondary Strip (hidden on lg+ and mobile landscape where center row fits cleanly) */}
           <div
             data-testid="mobile-match-strip"
-            className="sm:hidden land:!hidden mt-1.5 pt-1.5 border-t border-cyan-500/20 flex items-center justify-between gap-2 text-[11px] font-mono-num"
+            className="lg:hidden land:!hidden mt-1.5 pt-1.5 border-t border-cyan-500/20 flex items-center justify-between gap-2 text-[11px] sm:text-xs font-mono-num"
           >
             {isTest ? (
               <>
@@ -547,8 +547,8 @@ export const GameHud: React.FC<GameHudProps> = ({
           />
         )}
 
-        {/* Striker & Non-Striker Cards (Left & Right flanks — tucked down cleanly in mobile landscape) */}
-        <div className="hidden sm:flex land:flex absolute left-3 land:left-2.5 top-[64%] land:top-auto land:bottom-1.5 -translate-y-1/2 land:translate-y-0 items-center gap-2 land:gap-1.5 px-3 land:px-2 py-2 land:py-1 rounded-lg bg-[#060f24]/90 border border-cyan-500/35 max-w-[38vw]">
+        {/* Striker & Non-Striker Cards (Bottom-left & Bottom-right flanks, clear of top/right D3 charts) */}
+        <div className="hidden md:flex land:flex absolute left-3 land:left-2.5 bottom-2.5 sm:bottom-3 land:bottom-1.5 items-center gap-2 land:gap-1.5 px-3 land:px-2 py-1.5 sm:py-2 land:py-1 rounded-lg bg-[#060f24]/90 border border-cyan-500/35 max-w-[30vw] xl:max-w-[34vw]">
           <span
             className={`px-1.5 py-0.5 rounded text-[9px] font-mono-num font-bold shrink-0 ${
               strikerHand === 'left'
@@ -564,7 +564,7 @@ export const GameHud: React.FC<GameHudProps> = ({
           </span>
         </div>
 
-        <div className="hidden sm:flex land:flex absolute right-3 land:right-2.5 top-[64%] land:top-auto land:bottom-1.5 -translate-y-1/2 land:translate-y-0 items-center gap-2 land:gap-1.5 px-3 land:px-2 py-2 land:py-1 rounded-lg bg-[#060f24]/90 border border-cyan-500/35 max-w-[38vw]">
+        <div className="hidden md:flex land:flex absolute right-3 land:right-2.5 bottom-2.5 sm:bottom-3 land:bottom-1.5 items-center gap-2 land:gap-1.5 px-3 land:px-2 py-1.5 sm:py-2 land:py-1 rounded-lg bg-[#060f24]/90 border border-cyan-500/35 max-w-[30vw] xl:max-w-[34vw]">
           <span
             className={`px-1.5 py-0.5 rounded text-[9px] font-mono-num font-bold shrink-0 ${
               nonStrikerHand === 'left'
@@ -581,7 +581,7 @@ export const GameHud: React.FC<GameHudProps> = ({
         </div>
 
         {/* Mobile Portrait Live Striker & Non-Striker Strip */}
-        <div className="sm:hidden land:!hidden absolute bottom-11 left-2 right-2 flex items-center justify-between gap-2">
+        <div className="md:hidden land:!hidden absolute bottom-11 left-2 right-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#060f24]/92 border border-cyan-500/35 min-w-0">
             <span
               className={`px-1 py-0.5 rounded text-[8px] font-mono-num font-bold shrink-0 ${
@@ -660,10 +660,10 @@ export const GameHud: React.FC<GameHudProps> = ({
           role="log"
           aria-live="polite"
           aria-label="Live match commentary"
-          className="max-w-6xl mx-auto rounded-md bg-[#08132d] border border-cyan-500/30 px-3 land:px-2.5 py-1.5 land:py-0.5 max-h-[68px] sm:max-h-[76px] land:max-h-[28px] overflow-y-auto space-y-1 land:space-y-0.5"
+          className="max-w-6xl mx-auto rounded-md bg-[#08132d] border border-cyan-500/30 px-3 land:px-2.5 py-1.5 land:py-1 max-h-[68px] sm:max-h-[76px] land:max-h-[26px] overflow-y-auto land:overflow-hidden space-y-1 land:space-y-0"
         >
           {match.mode === 'pvp' && (match.pvpTurnPhase === 'bowl_select' || match.pvpTurnPhase === 'bat_select') && (
-            <div className="flex items-start gap-2 text-xs land:text-[11px] text-cyan-200 font-semibold border-b border-cyan-500/20 pb-1 land:pb-0.5">
+            <div className="flex items-start gap-2 text-xs land:text-[11px] text-cyan-200 font-semibold border-b border-cyan-500/20 pb-1 land:pb-0 land:border-none">
               <span className="font-mono-num text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 shrink-0">
                 TURN
               </span>
@@ -686,8 +686,13 @@ export const GameHud: React.FC<GameHudProps> = ({
           {match.commentaryLog.map((entry, idx) => (
             <div
               key={entry.id}
-              className={`flex items-start gap-2 text-xs land:text-[11px] leading-snug ${
-                idx === 0 ? 'text-slate-100 font-medium' : 'text-slate-400'
+              className={`flex items-start gap-2 text-xs land:text-[11px] leading-snug land:leading-tight ${
+                idx === 0 ? 'text-slate-100 font-medium' : 'text-slate-400 land:hidden'
+              } ${
+                match.mode === 'pvp' &&
+                (match.pvpTurnPhase === 'bowl_select' || match.pvpTurnPhase === 'bat_select')
+                  ? 'land:hidden'
+                  : ''
               }`}
             >
               <span className="font-mono-num text-[10px] text-cyan-300/90 shrink-0 pt-0.5 land:pt-0 w-8">
@@ -724,7 +729,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                     disabled={controlsLocked}
                     onClick={() => onSelectShot(shot)}
                     title={meta.description}
-                    className={`min-h-[42px] land:min-h-[32px] py-2 land:py-1 px-1.5 sm:py-2.5 sm:px-3 rounded-lg bg-[#08132b] border ${meta.border} ${meta.text} font-semibold tracking-wider text-[11px] sm:text-sm land:text-xs transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-amber-400`}
+                    className={`min-h-[44px] sm:min-h-[46px] land:min-h-[32px] py-2 land:py-1 px-1.5 sm:py-2.5 sm:px-3 rounded-lg bg-[#08132b] border ${meta.border} ${meta.text} font-semibold tracking-wider text-[11px] sm:text-sm land:text-xs transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-amber-400`}
                   >
                     <span>{meta.label}</span>
                     <span className="hidden md:inline land:!hidden text-[10px] text-slate-400 font-mono-num">
@@ -901,7 +906,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                         type="button"
                         disabled={controlsLocked}
                         onClick={() => onSelectDeliveryType(del)}
-                        className={`py-2 land:py-1 px-2 land:px-1 rounded-lg border text-xs land:text-[11px] font-semibold tracking-wider transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 ${
+                        className={`min-h-[40px] sm:min-h-[42px] land:min-h-0 py-2 land:py-1 px-2 land:px-1 rounded-lg border text-xs land:text-[11px] font-semibold tracking-wider transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 ${
                           activeSel
                             ? 'bg-cyan-400/20 border-cyan-300 text-white'
                             : `bg-[#08132b] ${meta.border} ${meta.text} hover:bg-[#0e1f45]`
@@ -918,9 +923,9 @@ export const GameHud: React.FC<GameHudProps> = ({
               {effectiveBowlingTab === 'pace' ? (
                 <div
                   data-testid="pace-speed-controller"
-                  className="flex flex-wrap sm:flex-nowrap land:flex-nowrap items-center justify-between gap-2 land:gap-1.5 px-2.5 land:px-2 py-1.5 land:py-1 rounded-lg bg-[#08132b] border border-amber-500/35"
+                  className="flex flex-col sm:flex-row land:flex-row sm:items-center land:items-center justify-between gap-1.5 sm:gap-2 land:gap-1.5 px-2.5 land:px-2 py-1.5 land:py-1 rounded-lg bg-[#08132b] border border-amber-500/35"
                 >
-                  <div className="flex items-center gap-2 land:gap-1.5 shrink-0">
+                  <div className="flex items-center justify-between sm:justify-start gap-2 land:gap-1.5 shrink-0">
                     <span className="text-[11px] land:text-[10px] font-bold uppercase tracking-wider text-amber-300">
                       Pace Speed
                     </span>
@@ -931,7 +936,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                       {selectedPaceSpeedKph} kph · {getPaceSpeedLabel(selectedPaceSpeedKph)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 land:gap-1.5 flex-1 min-w-[160px] justify-end">
+                  <div className="flex items-center justify-between sm:justify-end gap-2 land:gap-1.5 w-full sm:w-auto sm:flex-1 sm:min-w-[140px] land:min-w-[100px]">
                     <input
                       type="range"
                       min={PACE_SPEED_MIN}
@@ -942,7 +947,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                       aria-label="Pacer bowling speed in kph"
                       data-testid="pace-speed-slider"
                       onChange={(e) => onSelectPaceSpeedKph(Number(e.target.value))}
-                      className="w-full max-w-[190px] land:max-w-[140px] accent-amber-400 cursor-pointer disabled:opacity-45"
+                      className="flex-1 sm:flex-initial w-full sm:max-w-[190px] land:max-w-[110px] accent-amber-400 cursor-pointer disabled:opacity-45"
                     />
                     <div className="flex items-center gap-1 shrink-0">
                       {PACE_SPEED_PRESETS.map((preset) => (
@@ -966,9 +971,9 @@ export const GameHud: React.FC<GameHudProps> = ({
               ) : (
                 <div
                   data-testid="spin-degree-controller"
-                  className="flex flex-wrap sm:flex-nowrap land:flex-nowrap items-center justify-between gap-2 land:gap-1.5 px-2.5 land:px-2 py-1.5 land:py-1 rounded-lg bg-[#08132b] border border-purple-500/40"
+                  className="flex flex-col sm:flex-row land:flex-row sm:items-center land:items-center justify-between gap-1.5 sm:gap-2 land:gap-1.5 px-2.5 land:px-2 py-1.5 land:py-1 rounded-lg bg-[#08132b] border border-purple-500/40"
                 >
-                  <div className="flex items-center gap-2 land:gap-1.5 shrink-0">
+                  <div className="flex items-center justify-between sm:justify-start gap-2 land:gap-1.5 shrink-0">
                     <span className="text-[11px] land:text-[10px] font-bold uppercase tracking-wider text-purple-300">
                       Spin Degree
                     </span>
@@ -979,7 +984,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                       {selectedSpinDegree}° · {getSpinDegreeLabel(selectedSpinDegree)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 land:gap-1.5 flex-1 min-w-[160px] justify-end">
+                  <div className="flex items-center justify-between sm:justify-end gap-2 land:gap-1.5 w-full sm:w-auto sm:flex-1 sm:min-w-[140px] land:min-w-[100px]">
                     <input
                       type="range"
                       min={SPIN_DEGREE_MIN}
@@ -990,7 +995,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                       aria-label="Spinner turn degree"
                       data-testid="spin-degree-slider"
                       onChange={(e) => onSelectSpinDegree(Number(e.target.value))}
-                      className="w-full max-w-[190px] land:max-w-[140px] accent-purple-400 cursor-pointer disabled:opacity-45"
+                      className="flex-1 sm:flex-initial w-full sm:max-w-[190px] land:max-w-[110px] accent-purple-400 cursor-pointer disabled:opacity-45"
                     />
                     <div className="flex items-center gap-1 shrink-0">
                       {SPIN_DEGREE_PRESETS.map((deg) => (
@@ -1024,7 +1029,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                         type="button"
                         disabled={controlsLocked}
                         onClick={() => onSelectDeliveryLength(len)}
-                        className={`py-1.5 land:py-1 px-3 land:px-1.5 rounded-lg border text-xs land:text-[11px] font-semibold tracking-wider transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 ${
+                        className={`min-h-[40px] land:min-h-0 py-2 land:py-1 px-3 land:px-1.5 rounded-lg border text-xs land:text-[11px] font-semibold tracking-wider transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 ${
                           activeLen
                             ? 'bg-cyan-500/25 border-cyan-300 text-cyan-200'
                             : 'bg-[#08132b] border-slate-600/60 text-slate-300 hover:border-cyan-400/60'
@@ -1040,7 +1045,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                   type="button"
                   disabled={controlsLocked}
                   onClick={onBowl}
-                  className="w-full land:col-span-2 py-2.5 land:py-1 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-display text-lg land:text-base tracking-widest uppercase transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-amber-400"
+                  className="w-full land:col-span-2 min-h-[44px] land:min-h-0 py-2.5 land:py-1 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-display text-lg land:text-base tracking-widest uppercase transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-amber-400"
                 >
                   BOWL
                 </button>
@@ -2059,9 +2064,9 @@ export const GameHud: React.FC<GameHudProps> = ({
           aria-label="Match Result"
           className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/90 flex items-center justify-center p-4 land:p-2"
         >
-          <div className="w-full max-w-lg land:max-w-2xl max-h-[92dvh] overflow-y-auto rounded-xl bg-[#0b1530] border border-amber-400/70 p-6 sm:p-7 land:p-3.5 text-center space-y-4 land:space-y-2.5">
-            <div className="mx-auto w-14 h-14 land:w-10 land:h-10 rounded-full bg-amber-400/15 border border-amber-400/50 flex items-center justify-center">
-              <Trophy className="w-8 h-8 land:w-5 land:h-5 text-amber-400" aria-hidden="true" />
+          <div className="w-full max-w-lg land:max-w-2xl max-h-[92dvh] overflow-y-auto rounded-xl bg-[#0b1530] border border-amber-400/70 p-6 sm:p-7 land:p-3 text-center space-y-4 land:space-y-2">
+            <div className="mx-auto w-14 h-14 land:w-8 land:h-8 rounded-full bg-amber-400/15 border border-amber-400/50 flex items-center justify-center">
+              <Trophy className="w-8 h-8 land:w-4 land:h-4 text-amber-400" aria-hidden="true" />
             </div>
             <h2 className="font-display text-4xl land:text-2xl font-bold tracking-wider text-amber-400">
               MATCH RESULT

@@ -65,7 +65,7 @@ export const PitchMapChart: React.FC<PitchMapChartProps> = ({
 
     // SVG 1: D3 Spatial Pitch Heatmap
     const mapW = isLarge ? 300 : 254;
-    const mapH = isLarge ? 168 : 122;
+    const mapH = isLarge ? 168 : 112;
     const mapPad = isLarge
       ? { top: 8, right: 40, bottom: 14, left: 26 }
       : { top: 6, right: 36, bottom: 12, left: 24 };
@@ -110,7 +110,7 @@ export const PitchMapChart: React.FC<PitchMapChartProps> = ({
 
     // SVG 2: D3 Pitch Length Trend (Last 6 balls sequence)
     const trendW = isLarge ? 250 : 254;
-    const trendH = isLarge ? 116 : 62;
+    const trendH = isLarge ? 116 : 54;
     const trendPad = isLarge
       ? { top: 10, right: 12, bottom: 16, left: 22 }
       : { top: 6, right: 10, bottom: 14, left: 22 };
@@ -165,8 +165,8 @@ export const PitchMapChart: React.FC<PitchMapChartProps> = ({
           isModal
             ? 'w-full max-w-lg land:max-w-2xl max-h-[92dvh] overflow-y-auto p-3.5 land:p-2.5'
             : isLarge
-            ? 'w-[536px] p-3'
-            : 'w-[274px] p-2.5'
+            ? 'w-[490px] xl:w-[536px] p-3'
+            : 'w-[236px] xl:w-[268px] p-2.5'
         }`}
       >
         {/* Header */}
@@ -575,17 +575,17 @@ export const PitchMapChart: React.FC<PitchMapChartProps> = ({
 
   return (
     <>
-      {/* Desktop / Tablet docked widget (top-right, symmetric to RunRateChart; hidden on short mobile landscape) */}
+      {/* Laptop / Tablet-Landscape docked widget (top-right, symmetric to RunRateChart; hidden on portrait tablets, phones & short landscape) */}
       <div
-        className={`hidden md:block land:!hidden absolute right-3 top-12 ${
+        className={`hidden lg:block land:!hidden absolute right-3 top-11 ${
           expanded ? 'z-30' : 'z-20'
         }`}
       >
         {renderBody(false)}
       </div>
 
-      {/* Mobile & Landscape Phone compact toggle button */}
-      <div className="md:hidden land:!block absolute right-3 top-14 sm:top-12 land:right-2.5 land:top-9 z-20 pointer-events-auto">
+      {/* Mobile, Tablet Portrait & Landscape Phone compact toggle button */}
+      <div className="lg:hidden land:!block absolute right-3 top-12 land:right-2.5 land:top-9 z-20 pointer-events-auto">
         <button
           type="button"
           data-testid="pitch-map-mobile-toggle"
@@ -600,13 +600,13 @@ export const PitchMapChart: React.FC<PitchMapChartProps> = ({
         </button>
       </div>
 
-      {/* Mobile / Landscape Phone expanded D3 modal */}
+      {/* Mobile / Tablet Portrait / Landscape Phone expanded D3 modal */}
       {mobileOpen && (
         <div
           role="dialog"
           aria-modal="true"
           aria-label="Pitch mapping heatmap and length trends"
-          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/85 flex items-center justify-center p-4 land:p-2 md:hidden land:!flex"
+          className="pointer-events-auto fixed inset-0 z-30 bg-[#020612]/85 flex items-center justify-center p-4 land:p-2 lg:hidden land:!flex"
         >
           {renderBody(true)}
         </div>

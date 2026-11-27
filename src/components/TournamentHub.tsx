@@ -169,7 +169,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-20 flex flex-col items-center justify-start sm:justify-center land:!justify-start p-3 sm:p-6 land:p-3 overflow-y-auto">
+    <div className="fixed inset-0 z-20 flex flex-col items-center justify-start lg:justify-center land:!justify-start p-3 sm:p-6 land:p-3 overflow-y-auto">
       <button
         type="button"
         onClick={() => {
@@ -177,7 +177,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
           else if (screen === 'tournamentSetup') onNavigate('tournamentSelect');
           else onNavigate('menu');
         }}
-        className="self-start mb-2 sm:mb-0 land:!static land:self-start land:mb-1.5 sm:fixed sm:top-4 sm:left-4 z-30 inline-flex items-center gap-2 px-3.5 py-2 land:px-3 land:py-1.5 rounded-lg bg-[#09132a]/92 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-300 transition-colors text-xs font-semibold tracking-wider whitespace-nowrap cursor-pointer shrink-0"
+        className="self-start mb-2 xl:mb-0 land:!static land:self-start land:mb-1.5 xl:fixed xl:top-4 xl:left-4 z-30 inline-flex items-center gap-2 px-3.5 py-2 land:px-3 land:py-1.5 rounded-lg bg-[#09132a]/92 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-300 transition-colors text-xs font-semibold tracking-wider whitespace-nowrap cursor-pointer shrink-0"
       >
         <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
         {screen === 'tournamentHub' ? 'MENU' : 'BACK'}
@@ -185,7 +185,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
 
       {/* 1. TOURNAMENT & SERIES CATALOG */}
       {screen === 'tournamentSelect' && (
-        <main className="w-full max-w-3xl flex flex-col items-center pt-2 sm:pt-10 land:pt-0 pb-4">
+        <main className="w-full max-w-3xl flex flex-col items-center pt-1 pb-4">
           <h2 className="font-display text-4xl sm:text-5xl land:text-3xl font-bold tracking-wider text-amber-400 mb-2 land:mb-1 text-center">
             TOURNAMENTS & SERIES
           </h2>
@@ -245,7 +245,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
 
       {/* 2. TOURNAMENT / SERIES SETUP */}
       {screen === 'tournamentSetup' && (
-        <main className="w-full max-w-xl land:max-w-2xl flex flex-col items-center pt-2 sm:pt-10 land:pt-0 pb-4">
+        <main className="w-full max-w-xl land:max-w-2xl flex flex-col items-center pt-1 pb-4">
           <h2 className="font-display text-3xl sm:text-4xl land:text-2xl font-bold tracking-wider text-amber-400 mb-1 text-center">
             {activeCatalog.title.toUpperCase()}
           </h2>
@@ -465,7 +465,7 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
 
       {/* 3. ACTIVE TOURNAMENT / SERIES HUB */}
       {screen === 'tournamentHub' && tournament && (
-        <main className="w-full max-w-5xl min-h-0 sm:h-[88vh] land:h-auto flex flex-col gap-3 pt-1 sm:pt-10 land:pt-0 pb-6 sm:pb-0 land:pb-4">
+        <main className="w-full max-w-5xl min-h-0 lg:h-[88vh] land:h-auto flex flex-col gap-3 pt-1 pb-6 lg:pb-0 land:pb-4">
           {/* Top Hub Header */}
           <div className="flex flex-wrap items-center justify-between gap-3 land:gap-2 px-4 land:px-3 py-3 land:py-2 rounded-xl bg-[#0b1530]/95 border border-cyan-500/35">
             <div className="flex items-center gap-3">
@@ -602,8 +602,8 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
               />
             )}
 
-          {/* Mobile Tabs */}
-          <div className="flex sm:hidden items-center gap-2">
+          {/* Mobile & Tablet Portrait Tabs */}
+          <div className="flex lg:hidden items-center gap-2">
             <button
               type="button"
               onClick={() => setHubTab('fixtures')}
@@ -651,11 +651,11 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
               onResetCareerStats={onResetCareerStats}
             />
           ) : (
-            <div className="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-12 gap-4">
+            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4">
               {/* Standings / Series Tally */}
               <section
-                className={`sm:col-span-5 rounded-xl bg-[#0b1530]/95 border border-cyan-500/35 p-4 flex flex-col min-h-0 ${
-                  hubTab === 'table' ? 'flex' : 'hidden sm:flex'
+                className={`lg:col-span-5 rounded-xl bg-[#0b1530]/95 border border-cyan-500/35 p-4 flex flex-col min-h-0 ${
+                  hubTab === 'table' ? 'flex' : 'hidden lg:flex'
                 }`}
               >
                 <h3 className="font-display text-xl font-bold tracking-wider text-amber-400 mb-3">
@@ -690,8 +690,8 @@ export const TournamentHub: React.FC<TournamentHubProps> = ({
 
               {/* Fixtures & Knockout Bracket */}
               <section
-                className={`sm:col-span-7 rounded-xl bg-[#0b1530]/95 border border-cyan-500/35 p-4 flex flex-col min-h-0 ${
-                  hubTab === 'fixtures' ? 'flex' : 'hidden sm:flex'
+                className={`lg:col-span-7 rounded-xl bg-[#0b1530]/95 border border-cyan-500/35 p-4 flex flex-col min-h-0 ${
+                  hubTab === 'fixtures' ? 'flex' : 'hidden lg:flex'
                 }`}
               >
                 <h3 className="font-display text-xl font-bold tracking-wider text-amber-400 mb-3">

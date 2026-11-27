@@ -82,32 +82,59 @@ const FIELDER_ANGLES = [
 
 const FIELDER_RADII = [0.64, 0.56, 0.68, 0.44, 0.44, 0.66, 0.54, 0.66, 0.80];
 
-function computeFieldGeometry(width: number, height: number) {
+function measureHudInsets(width: number, height: number) {
   const isShortLandscape = height <= 520 && width > height;
+  const isPortrait = height > width;
   const isMobile = width < 640 && !isShortLandscape;
-  const topSafe = isShortLandscape ? 46 : isMobile ? 72 : 68;
-  const bottomSafe = isShortLandscape
-    ? Math.min(height * 0.35, 138)
-    : isMobile
-    ? Math.min(height * 0.34, 285)
-    : Math.min(height * 0.28, 220);
-  const availH = isShortLandscape
-    ? Math.max(125, height - topSafe - bottomSafe)
-    : Math.max(220, height - topSafe - bottomSafe);
+  let headerBottom = isShortLandscape ? 42 : isMobile ? 74 : 62;
+  let footerTop = height - (isShortLandscape ? 160 : isMobile ? 280 : 230);
+
+  if (typeof document !== 'undefined') {
+    const hdr = document.querySelector('header');
+    const ftr = document.querySelector('footer');
+    if (hdr) {
+      const r = hdr.getBoundingClientRect();
+      if (r.height > 0) headerBottom = r.bottom;
+    }
+    if (ftr) {
+      const r = ftr.getBoundingClientRect();
+      if (r.height > 0) footerTop = r.top;
+    }
+  }
+
+  const topPad = isShortLandscape ? 24 : 36;
+  const bottomPad = isShortLandscape ? 26 : isPortrait && width < 768 ? 64 : 36;
+  return {
+    isShortLandscape,
+    isPortrait,
+    isMobile,
+    headerBottom,
+    footerTop,
+    topSafe: headerBottom + topPad,
+    bottomSafe: Math.max(0, height - footerTop) + bottomPad,
+  };
+}
+
+function computeFieldGeometry(width: number, height: number) {
+  const { isShortLandscape, isPortrait, isMobile, topSafe, bottomSafe } = measureHudInsets(
+    width,
+    height
+  );
+  const availH = Math.max(isShortLandscape ? 115 : 180, height - topSafe - bottomSafe);
   const cx = width * 0.5;
   const cy = topSafe + availH * 0.5;
   const rx = isShortLandscape
-    ? Math.min(width * 0.42, availH * 1.45)
-    : isMobile
-    ? Math.min(width * 0.46, availH * 0.72)
-    : Math.min(width * 0.44, availH * 0.86);
+    ? Math.min(width * 0.42, availH * 1.48)
+    : isPortrait
+    ? Math.min(width * 0.45, availH * 0.78)
+    : Math.min(width * 0.43, availH * 0.88);
   const ry = isShortLandscape
-    ? Math.min(availH * 0.46, rx * 0.54)
-    : isMobile
-    ? Math.min(availH * 0.46, Math.max(rx * 0.78, availH * 0.38))
-    : Math.min(availH * 0.46, rx * 0.56);
-  const pitchW = Math.max(isShortLandscape ? 20 : 24, rx * 0.13);
-  const pitchH = isShortLandscape ? Math.max(78, ry * 0.94) : Math.max(125, ry * 0.92);
+    ? Math.min(availH * 0.44, rx * 0.52)
+    : isPortrait
+    ? Math.min(availH * 0.45, rx * (isMobile ? 0.92 : 0.84))
+    : Math.min(availH * 0.45, rx * 0.56);
+  const pitchW = Math.max(isShortLandscape ? 18 : 22, rx * 0.13);
+  const pitchH = isShortLandscape ? Math.max(72, ry * 0.92) : Math.max(116, ry * 0.92);
   return { isShortLandscape, cx, cy, rx, ry, pitchW, pitchH };
 }
 
@@ -409,6 +436,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       bgCtx.restore();
     };
 
+    let lastInsetKey = '';
     const updateSize = () => {
       dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       width = canvas.clientWidth || window.innerWidth;
@@ -546,6 +574,15 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
 
       if (!paused) {
         totalTime += dt;
+      }
+
+      if (playing) {
+        const { headerBottom, footerTop } = measureHudInsets(width, height);
+        const insetKey = `${Math.round(headerBottom)}:${Math.round(footerTop)}`;
+        if (insetKey !== lastInsetKey) {
+          lastInsetKey = insetKey;
+          bgDirtyRef.current = true;
+        }
       }
 
       if (bgDirtyRef.current) {

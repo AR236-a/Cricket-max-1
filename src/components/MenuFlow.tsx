@@ -114,7 +114,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-20 flex flex-col items-center overflow-y-auto p-4 sm:p-6 pt-16 sm:pt-6 land:p-3 land:pt-3">
+    <div className="fixed inset-0 z-20 flex flex-col items-center overflow-y-auto p-4 sm:p-6 land:p-3">
       {screen !== 'menu' && (
         <button
           type="button"
@@ -125,7 +125,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
             else if (screen === 'overs') onNavigate('teams');
             else if (screen === 'toss') onNavigate(isTournamentMatch ? 'tournamentHub' : 'overs');
           }}
-          className="fixed top-3 left-3 sm:top-5 sm:left-5 land:static land:self-start land:mb-1.5 z-30 inline-flex items-center gap-2 px-3.5 py-2 land:px-3 land:py-1.5 rounded-lg bg-[#09132a]/95 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-300 transition-colors text-xs font-semibold tracking-wider whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
+          className="self-start mb-3 lg:mb-0 lg:fixed lg:top-5 lg:left-5 land:static land:self-start land:mb-1.5 z-30 inline-flex items-center gap-2 px-3.5 py-2 land:px-3 land:py-1.5 rounded-lg bg-[#09132a]/95 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-300 transition-colors text-xs font-semibold tracking-wider whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-400"
         >
           <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
           BACK
@@ -134,19 +134,19 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
 
       {/* MAIN MENU */}
       {screen === 'menu' && (
-        <main className="my-auto flex flex-col items-center text-center max-w-3xl w-full px-4 land:px-2">
+        <main className="my-auto flex flex-col items-center text-center max-w-3xl w-full px-3 sm:px-4 land:px-2">
           <h1 className="font-display text-5xl sm:text-7xl md:text-[5.25rem] land:text-4xl font-bold tracking-wider text-amber-400 title-glow select-none leading-none whitespace-nowrap">
             CRICKET MAX
           </h1>
-          <p className="mt-3 land:mt-1 text-xs sm:text-base land:text-[11px] tracking-[0.28em] sm:tracking-[0.38em] uppercase text-cyan-400 font-semibold whitespace-nowrap">
+          <p className="mt-3 land:mt-1 text-[11px] sm:text-sm md:text-base land:text-[11px] tracking-[0.2em] sm:tracking-[0.34em] uppercase text-cyan-400 font-semibold whitespace-nowrap">
             Stadium Edition · Offline Ready
           </p>
 
-          <div className="mt-7 sm:mt-9 land:mt-4 flex flex-col land:grid land:grid-cols-2 gap-3 land:gap-2 w-full max-w-xs land:max-w-xl">
+          <div className="mt-7 sm:mt-9 land:mt-4 flex flex-col sm:grid sm:grid-cols-2 land:grid land:grid-cols-2 gap-3 land:gap-2 w-full max-w-xs sm:max-w-lg md:max-w-xl">
             {savedMatch && onResumeSavedMatch && (
               <div
                 data-testid="resume-match-card"
-                className="flex items-stretch gap-1.5 w-full land:col-span-2"
+                className="flex items-stretch gap-1.5 w-full sm:col-span-2 land:col-span-2"
               >
                 <button
                   type="button"
@@ -209,7 +209,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
               How to Play
             </button>
 
-            <div className="land:flex land:items-stretch">
+            <div className="sm:flex sm:items-stretch land:flex land:items-stretch">
               <PWAInstallButton />
             </div>
           </div>
@@ -334,7 +334,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
 
       {/* SELECT TEAMS */}
       {screen === 'teams' && (
-        <main className="flex flex-col items-center w-full max-w-xl land:max-w-3xl max-h-[88vh] land:max-h-none land:pb-2">
+        <main className="flex flex-col items-center w-full max-w-xl md:max-w-2xl lg:max-w-3xl pb-4 land:pb-2">
           <h2 className="font-display text-4xl sm:text-5xl land:text-3xl font-bold tracking-wider text-amber-400 mb-5 land:mb-2">
             SELECT TEAMS
           </h2>
@@ -417,7 +417,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
           </div>
 
           {showSquads ? (
-            <div className="w-full space-y-3 overflow-y-auto pr-1 max-h-[46vh] land:max-h-none land:overflow-visible">
+            <div className="w-full space-y-3 overflow-y-auto pr-1 max-h-[54vh] land:max-h-none land:overflow-visible">
               {league === 'international' && format === 'limited' && (
                 <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#081024] border border-cyan-500/30 text-xs">
                   <span className="text-slate-300 font-medium">International Format Squad:</span>
@@ -483,7 +483,7 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
               </div>
             </div>
           ) : (
-          <div className="w-full grid grid-cols-1 sm:grid-cols-2 land:grid-cols-3 gap-2.5 land:gap-2 overflow-y-auto pr-1 max-h-[46vh] land:max-h-none land:overflow-visible">
+          <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 land:grid-cols-3 gap-2.5 land:gap-2">
             {leagueTeams.map((team) => {
               const isHome = homeTeamId === team.id;
               const isAway = awayTeamId === team.id;
@@ -782,11 +782,11 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
 
       {/* HOW TO PLAY */}
       {screen === 'rules' && (
-        <main className="flex flex-col items-center w-full max-w-lg land:max-w-2xl max-h-[86vh] land:max-h-none land:pb-2">
+        <main className="flex flex-col items-center w-full max-w-lg md:max-w-2xl pb-4 land:pb-2">
           <h2 className="font-display text-4xl sm:text-5xl land:text-3xl font-bold tracking-wider text-amber-400 mb-6 land:mb-3">
             HOW TO PLAY
           </h2>
-          <div className="w-full rounded-xl bg-[#0b1530]/95 border border-cyan-500/35 p-6 land:p-4 overflow-y-auto land:overflow-visible space-y-5 land:space-y-3 text-sm text-slate-200">
+          <div className="w-full rounded-xl bg-[#0b1530]/95 border border-cyan-500/35 p-6 land:p-4 space-y-5 land:space-y-3 text-sm text-slate-200">
             <section>
               <h3 className="font-display text-lg tracking-wider text-amber-400 mb-2">BATTING</h3>
               <ul className="space-y-1.5 text-slate-300 text-xs sm:text-sm">
