@@ -1,6 +1,7 @@
 import {
   DeliveryType,
   MatchFormat,
+  PitchCondition,
   RainChance,
   ShotType,
   WeatherCondition,
@@ -269,6 +270,246 @@ export function computeWeatherModifiers(
     boundaryMod: 0,
     dotMod: 0,
     swingVisualScale: 1.0,
+  };
+}
+
+export interface WeatherPitchPalette {
+  baseColor: string;
+  accentColor: string;
+  moistureSheenColor: string | null;
+  puddleOpacity: number;
+  outfieldEvenColor: string;
+  outfieldOddColor: string;
+}
+
+export function getWeatherPitchPalette(
+  pitchCondition: PitchCondition,
+  weather: WeatherCondition,
+  isRainDelay = false
+): WeatherPitchPalette {
+  const heavyRain = isRainDelay || weather === 'drizzle';
+
+  const outfieldEvenColor = isRainDelay
+    ? '#0c431b'
+    : weather === 'drizzle'
+    ? '#0e4c1d'
+    : weather === 'overcast'
+    ? '#0f561f'
+    : weather === 'humid'
+    ? '#105c22'
+    : '#116322';
+  const outfieldOddColor = isRainDelay
+    ? '#115423'
+    : weather === 'drizzle'
+    ? '#146026'
+    : weather === 'overcast'
+    ? '#156b27'
+    : weather === 'humid'
+    ? '#167229'
+    : '#177a2b';
+
+  if (pitchCondition === 'green') {
+    if (isRainDelay) {
+      return {
+        baseColor: '#456235',
+        accentColor: 'rgba(22, 61, 30, 0.42)',
+        moistureSheenColor: 'rgba(147, 197, 253, 0.2)',
+        puddleOpacity: 0.35,
+        outfieldEvenColor,
+        outfieldOddColor,
+      };
+    }
+    if (weather === 'drizzle') {
+      return {
+        baseColor: '#52733e',
+        accentColor: 'rgba(26, 74, 34, 0.36)',
+        moistureSheenColor: 'rgba(147, 197, 253, 0.14)',
+        puddleOpacity: 0.22,
+        outfieldEvenColor,
+        outfieldOddColor,
+      };
+    }
+    if (weather === 'overcast') {
+      return {
+        baseColor: '#638448',
+        accentColor: 'rgba(38, 86, 35, 0.3)',
+        moistureSheenColor: 'rgba(148, 163, 184, 0.1)',
+        puddleOpacity: 0,
+        outfieldEvenColor,
+        outfieldOddColor,
+      };
+    }
+    if (weather === 'humid') {
+      return {
+        baseColor: '#608647',
+        accentColor: 'rgba(34, 88, 36, 0.28)',
+        moistureSheenColor: 'rgba(186, 230, 253, 0.14)',
+        puddleOpacity: 0.08,
+        outfieldEvenColor,
+        outfieldOddColor,
+      };
+    }
+    return {
+      baseColor: '#799a54',
+      accentColor: 'rgba(46, 102, 38, 0.25)',
+      moistureSheenColor: null,
+      puddleOpacity: 0,
+      outfieldEvenColor,
+      outfieldOddColor,
+    };
+  }
+
+  if (pitchCondition === 'dry') {
+    if (isRainDelay) {
+      return {
+        baseColor: '#6d624d',
+        accentColor: 'rgba(68, 53, 33, 0.36)',
+        moistureSheenColor: 'rgba(147, 197, 253, 0.22)',
+        puddleOpacity: 0.35,
+        outfieldEvenColor,
+        outfieldOddColor,
+      };
+    }
+    if (weather === 'drizzle') {
+      return {
+        baseColor: '#8d7d60',
+        accentColor: 'rgba(89, 67, 39, 0.3)',
+        moistureSheenColor: 'rgba(147, 197, 253, 0.15)',
+        puddleOpacity: 0.22,
+        outfieldEvenColor,
+        outfieldOddColor,
+      };
+    }
+    if (weather === 'overcast') {
+      return {
+        baseColor: '#baa886',
+        accentColor: 'rgba(105, 79, 44, 0.24)',
+        moistureSheenColor: 'rgba(148, 163, 184, 0.1)',
+        puddleOpacity: 0,
+        outfieldEvenColor,
+        outfieldOddColor,
+      };
+    }
+    if (weather === 'humid') {
+      return {
+        baseColor: '#bfa97d',
+        accentColor: 'rgba(110, 82, 46, 0.24)',
+        moistureSheenColor: 'rgba(186, 230, 253, 0.12)',
+        puddleOpacity: 0.08,
+        outfieldEvenColor,
+        outfieldOddColor,
+      };
+    }
+    return {
+      baseColor: weather === 'windy' ? '#dfc48e' : '#d7c195',
+      accentColor: 'rgba(130, 92, 48, 0.22)',
+      moistureSheenColor: null,
+      puddleOpacity: 0,
+      outfieldEvenColor,
+      outfieldOddColor,
+    };
+  }
+
+  // Hard pitch
+  if (isRainDelay) {
+    return {
+      baseColor: '#665b48',
+      accentColor: 'rgba(55, 42, 24, 0.34)',
+      moistureSheenColor: 'rgba(147, 197, 253, 0.22)',
+      puddleOpacity: 0.35,
+      outfieldEvenColor,
+      outfieldOddColor,
+    };
+  }
+  if (heavyRain) {
+    return {
+      baseColor: '#817056',
+      accentColor: 'rgba(78, 56, 30, 0.28)',
+      moistureSheenColor: 'rgba(147, 197, 253, 0.15)',
+      puddleOpacity: 0.22,
+      outfieldEvenColor,
+      outfieldOddColor,
+    };
+  }
+  if (weather === 'overcast') {
+    return {
+      baseColor: '#a8926d',
+      accentColor: 'rgba(92, 65, 34, 0.22)',
+      moistureSheenColor: 'rgba(148, 163, 184, 0.1)',
+      puddleOpacity: 0,
+      outfieldEvenColor,
+      outfieldOddColor,
+    };
+  }
+  if (weather === 'humid') {
+    return {
+      baseColor: '#b09468',
+      accentColor: 'rgba(104, 72, 36, 0.2)',
+      moistureSheenColor: 'rgba(186, 230, 253, 0.12)',
+      puddleOpacity: 0.08,
+      outfieldEvenColor,
+      outfieldOddColor,
+    };
+  }
+  return {
+    baseColor: weather === 'windy' ? '#cfa970' : '#c8a774',
+    accentColor: 'rgba(139, 90, 43, 0.16)',
+    moistureSheenColor: null,
+    puddleOpacity: 0,
+    outfieldEvenColor,
+    outfieldOddColor,
+  };
+}
+
+export interface WeatherBallPhysics {
+  swingMultiplier: number;
+  bounceMultiplier: number;
+  flightDragScale: number;
+}
+
+export function getWeatherBallPhysics(
+  weather: WeatherCondition,
+  isRainDelay = false
+): WeatherBallPhysics {
+  if (isRainDelay) {
+    return {
+      swingMultiplier: 1.48,
+      bounceMultiplier: 0.44,
+      flightDragScale: 1.18,
+    };
+  }
+  if (weather === 'drizzle') {
+    return {
+      swingMultiplier: 1.42,
+      bounceMultiplier: 0.56,
+      flightDragScale: 1.12,
+    };
+  }
+  if (weather === 'overcast') {
+    return {
+      swingMultiplier: 1.65,
+      bounceMultiplier: 0.88,
+      flightDragScale: 1.0,
+    };
+  }
+  if (weather === 'windy') {
+    return {
+      swingMultiplier: 1.35,
+      bounceMultiplier: 0.96,
+      flightDragScale: 1.0,
+    };
+  }
+  if (weather === 'humid') {
+    return {
+      swingMultiplier: 1.18,
+      bounceMultiplier: 0.78,
+      flightDragScale: 0.95,
+    };
+  }
+  return {
+    swingMultiplier: 1.0,
+    bounceMultiplier: 1.0,
+    flightDragScale: 1.0,
   };
 }
 

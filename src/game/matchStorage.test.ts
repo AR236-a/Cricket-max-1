@@ -43,6 +43,8 @@ test('parseMatchSession round-trips an unfinished match and clears isPaused on r
     savedAt: 1700000000000,
     selectedDeliveryType: 'yorker',
     selectedDeliveryLength: 'full',
+    selectedPaceSpeedKph: 151,
+    selectedSpinDegree: 9,
     match: pausedMatch,
   };
 
@@ -52,6 +54,8 @@ test('parseMatchSession round-trips an unfinished match and clears isPaused on r
   assert.equal(parsed.autoResumeOnLoad, true);
   assert.equal(parsed.selectedDeliveryType, 'yorker');
   assert.equal(parsed.selectedDeliveryLength, 'full');
+  assert.equal(parsed.selectedPaceSpeedKph, 151);
+  assert.equal(parsed.selectedSpinDegree, 9);
   assert.equal(parsed.match.isPaused, false);
   assert.equal(parsed.match.innings1.ballsBowled, 1);
   assert.equal(parsed.match.innings1.runs, afterOneBall.innings1.runs);

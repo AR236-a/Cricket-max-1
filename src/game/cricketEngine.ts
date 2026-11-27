@@ -4,15 +4,29 @@ import {
   calculateDlsTarget,
   computeRainReduction,
   computeWeatherModifiers,
+  getWeatherBallPhysics,
   maybeShiftWeather,
   pickInitialWeather,
   RAIN_CHANCE_OPTIONS,
   shouldTriggerRainInterruption,
   WEATHER_META,
 } from './dls';
-import { getBowlingStyle, getTeamById } from './teams';
+import {
+  applyDrsVerdictToResolution,
+  DRS_TIME_LIMIT_SEC,
+  evaluateDrsVerdict,
+  getDrsAllowance,
+  isEligibleDrsDecision,
+  shouldAiRequestDrs,
+} from './drs';
+import {
+  appendRecentPitchBall,
+  computePitchLandingPoint,
+} from './pitchMap';
+import { getBattingHand, getBowlingStyle, getTeamById } from './teams';
 import {
   BatterStats,
+  BowlerDrsChallenge,
   BowlerSpellStat,
   BowlingSide,
   BowlingStyle,
@@ -22,6 +36,8 @@ import {
   DeliveryType,
   Difficulty,
   DlsRainPopupState,
+  DrsAppealTrigger,
+  DrsPromptState,
   GameMode,
   InningsState,
   MatchFormat,
@@ -30,6 +46,7 @@ import {
   MilestoneKind,
   NextBatterPrompt,
   OverProgressPoint,
+  PitchBallRecord,
   PitchCondition,
   RainChance,
   ShotType,
@@ -177,6 +194,54 @@ export const LENGTH_META: Record<DeliveryLength, { label: string }> = {
   short: { label: 'SHORT' },
 };
 
+export const PACE_SPEED_MIN = 120;
+export const PACE_SPEED_MAX = 155;
+export const DEFAULT_PACE_SPEED_KPH = 140;
+export const PACE_SPEED_PRESETS = [125, 135, 145, 155] as const;
+
+export const SPIN_DEGREE_MIN = 1;
+export const SPIN_DEGREE_MAX = 12;
+export const DEFAULT_SPIN_DEGREE = 6;
+export const SPIN_DEGREE_PRESETS = [2, 5, 8, 12] as const;
+
+export function clampPaceSpeedKph(kph: number): number {
+  if (!Number.isFinite(kph)) return DEFAULT_PACE_SPEED_KPH;
+  return Math.min(PACE_SPEED_MAX, Math.max(PACE_SPEED_MIN, Math.round(kph)));
+}
+
+export function clampSpinDegree(deg: number): number {
+  if (!Number.isFinite(deg)) return DEFAULT_SPIN_DEGREE;
+  return Math.min(SPIN_DEGREE_MAX, Math.max(SPIN_DEGREE_MIN, Math.round(deg)));
+}
+
+export function getPaceSpeedLabel(kph: number): string {
+  const v = clampPaceSpeedKph(kph);
+  if (v < 128) return 'Slower';
+  if (v < 138) return 'Medium';
+  if (v < 147) return 'Fast';
+  return 'Express';
+}
+
+export function getSpinDegreeLabel(deg: number): string {
+  const v = clampSpinDegree(deg);
+  if (v <= 3) return 'Skidder';
+  if (v <= 7) return 'Stock';
+  return 'Ripper';
+}
+
+export function getDeliveryAnimDurationSec(
+  deliveryType: DeliveryType,
+  paceSpeedKph: number = DEFAULT_PACE_SPEED_KPH,
+  weatherCondition: WeatherCondition = 'clear',
+  isRainDelay = false
+): number {
+  const drag = getWeatherBallPhysics(weatherCondition, isRainDelay).flightDragScale;
+  if (isSpinDelivery(deliveryType)) return Number((1.55 * drag).toFixed(3));
+  const clamped = clampPaceSpeedKph(paceSpeedKph);
+  const t = (clamped - PACE_SPEED_MIN) / (PACE_SPEED_MAX - PACE_SPEED_MIN);
+  return Number(((1.7 - t * 0.32) * drag).toFixed(3));
+}
+
 export function createInningsState(
   battingTeamId: string,
   bowlingTeamId: string,
@@ -195,6 +260,10 @@ export function createInningsState(
   }));
 
   const initialBowler = bowlTeam.bowlers[0] ?? 'Bowler';
+  const reviewsAllowance = getDrsAllowance(
+    context?.format ?? 'limited',
+    context?.totalOvers ?? 20
+  );
 
   return {
     battingTeamId,
@@ -203,10 +272,13 @@ export function createInningsState(
     wickets: 0,
     ballsBowled: 0,
     declared: false,
+    battingReviewsRemaining: reviewsAllowance,
+    bowlingReviewsRemaining: reviewsAllowance,
     currentOverBalls: [],
     currentOverRuns: 0,
     currentOverWickets: 0,
     overHistory: [],
+    recentPitchBalls: [],
     strikerIndex: 0,
     nonStrikerIndex: 1,
     nextBatterIndex: 2,
@@ -297,6 +369,7 @@ export function createInitialMatchState(params: {
     pendingBatterPopup: null,
     pendingMilestonePopup: null,
     pendingDlsPopup: null,
+    pendingDrsPopup: null,
     tossCaller: 'home',
     tossWinner: params.tossWinner ?? 'home',
     tossCoinResult: params.tossCoinResult ?? 'heads',
@@ -325,6 +398,8 @@ export function createInitialMatchState(params: {
     pvpTurnPhase: 'bowl_select',
     pendingDeliveryType: getBowlingStyle(innings1.bowlerName) === 'spin' ? 'off_spin' : 'fast',
     pendingDeliveryLength: 'good',
+    pendingPaceSpeedKph: DEFAULT_PACE_SPEED_KPH,
+    pendingSpinDegree: DEFAULT_SPIN_DEGREE,
     activeTournamentMatchId: params.activeTournamentMatchId,
   };
 }
@@ -476,7 +551,7 @@ export function chooseAiDelivery(
   pitchCondition: PitchCondition = 'hard',
   bowlerStyle?: BowlingStyle,
   weatherCondition: WeatherCondition = 'clear'
-): { type: DeliveryType; length: DeliveryLength } {
+): { type: DeliveryType; length: DeliveryLength; paceSpeedKph?: number; spinDegree?: number } {
   const lengths: DeliveryLength[] = ['full', 'good', 'short'];
   const spinPool: DeliveryType[] = ['off_spin', 'leg_spin', 'googly', 'doosra', 'arm_ball', 'carrom'];
   const pacePool: DeliveryType[] = ['fast', 'swing', 'seam', 'yorker', 'bouncer'];
@@ -522,7 +597,36 @@ export function chooseAiDelivery(
       : type === 'bouncer'
       ? 'short'
       : lengths[Math.floor(rng() * lengths.length)];
-  return { type, length };
+
+  if (isSpinDelivery(type)) {
+    const baseDeg =
+      type === 'arm_ball'
+        ? 2
+        : pitchCondition === 'dry'
+        ? 8
+        : difficulty === 'hard'
+        ? 7
+        : 5;
+    const jitter = Math.floor(rng() * 5) - 2;
+    return {
+      type,
+      length,
+      spinDegree: clampSpinDegree(baseDeg + jitter),
+    };
+  }
+
+  const baseSpeed =
+    type === 'fast' || type === 'bouncer' || type === 'yorker'
+      ? difficulty === 'hard'
+        ? 147
+        : 142
+      : 136;
+  const speedJitter = Math.floor(rng() * 11) - 5;
+  return {
+    type,
+    length,
+    paceSpeedKph: clampPaceSpeedKph(baseSpeed + speedJitter),
+  };
 }
 
 export function chooseAiShot(
@@ -582,6 +686,8 @@ export function resolveDelivery(params: {
   pitchCondition?: PitchCondition;
   weatherCondition?: WeatherCondition;
   bowlingSide?: BowlingSide;
+  paceSpeedKph?: number;
+  spinDegree?: number;
   rng?: () => number;
 }): DeliveryResolution {
   const rng = params.rng ?? Math.random;
@@ -590,6 +696,12 @@ export function resolveDelivery(params: {
   const weatherCondition: WeatherCondition = params.weatherCondition ?? 'clear';
   const bowlingSide: BowlingSide = params.bowlingSide ?? 'over';
   const spin = isSpinDelivery(deliveryType);
+  const appliedPaceSpeedKph = !spin
+    ? clampPaceSpeedKph(params.paceSpeedKph ?? DEFAULT_PACE_SPEED_KPH)
+    : undefined;
+  const appliedSpinDegree = spin
+    ? clampSpinDegree(params.spinDegree ?? DEFAULT_SPIN_DEGREE)
+    : undefined;
 
   let matchup = 0;
 
@@ -706,6 +818,42 @@ export function resolveDelivery(params: {
   boundaryMod += weatherMods.boundaryMod;
   dotMod += weatherMods.dotMod;
 
+  // Bowler Pace Speed (120–155 kph) or Spinner Turn Degree (1°–12°) modifiers
+  if (appliedPaceSpeedKph !== undefined) {
+    const speedNorm = (appliedPaceSpeedKph - PACE_SPEED_MIN) / (PACE_SPEED_MAX - PACE_SPEED_MIN);
+    if (appliedPaceSpeedKph >= 146) {
+      wicketMod += 0.015 + (speedNorm - 0.74) * 0.04;
+      boundaryMod += 0.015;
+      if (deliveryType === 'bouncer' || deliveryType === 'fast' || deliveryType === 'yorker') {
+        wicketMod += 0.01;
+      }
+    } else if (appliedPaceSpeedKph <= 126) {
+      dotMod += 0.03;
+      if (shot === 'loft' || shot === 'hook' || shot === 'pull') {
+        wicketMod += 0.025;
+        boundaryMod -= 0.03;
+      }
+    } else if (deliveryType === 'swing' && appliedPaceSpeedKph >= 130 && appliedPaceSpeedKph <= 141) {
+      wicketMod += 0.012;
+      dotMod += 0.015;
+    }
+  } else if (appliedSpinDegree !== undefined) {
+    const spinNorm = (appliedSpinDegree - SPIN_DEGREE_MIN) / (SPIN_DEGREE_MAX - SPIN_DEGREE_MIN);
+    if (appliedSpinDegree >= 8) {
+      const dryAmplifier = pitchCondition === 'dry' ? 1.4 : 1.0;
+      wicketMod += (0.014 + (spinNorm - 0.6) * 0.045) * dryAmplifier;
+      dotMod += 0.02;
+      if (shot === 'loft' || shot === 'sweep') {
+        boundaryMod += 0.012;
+      }
+    } else if (appliedSpinDegree <= 3) {
+      dotMod += 0.025;
+      if (shot === 'sweep' || shot === 'pull') {
+        wicketMod += 0.015;
+      }
+    }
+  }
+
   // In Test cricket, slightly fewer wild 6s and more patient accumulation / bowling threat
   const testMode = params.format === 'test';
   let pWicket = testMode ? 0.075 : 0.09;
@@ -775,7 +923,7 @@ export function resolveDelivery(params: {
       ? ['Bowled', 'LBW', 'Caught']
       : spin
       ? ['Caught', 'Stumped', 'Bowled', 'LBW']
-      : ['Caught', 'Bowled', 'Hit Wicket'];
+      : ['Caught', 'Bowled', 'LBW'];
   const wicketKind = isWicket
     ? wicketKinds[Math.floor(rng() * wicketKinds.length)]
     : undefined;
@@ -792,9 +940,12 @@ export function resolveDelivery(params: {
   };
   const [minA, maxA] = angleByShot[shot];
   const hitAngleRad = minA + rng() * (maxA - minA);
-  const hitDistanceFactor = isWicket
-    ? 0.08
-    : runs === 6
+  const hitDistanceFactor =
+    isWicket && wicketKind === 'Caught'
+      ? Number((0.48 + rng() * 0.25).toFixed(2))
+      : isWicket
+      ? 0.08
+      : runs === 6
     ? 1.12
     : runs === 4
     ? 0.96
@@ -837,6 +988,37 @@ export function resolveDelivery(params: {
     pitchCondition,
     weatherCondition,
     bowlingSide,
+    paceSpeedKph: appliedPaceSpeedKph,
+    spinDegree: appliedSpinDegree,
+  });
+
+  // Eligible DRS & Third Umpire appeals: LBW (DRS) & Stumped (Direct Third Umpire Crease Check)
+  let drsAppeal: DrsAppealTrigger | undefined;
+  if (isWicket && isEligibleDrsDecision(wicketKind)) {
+    drsAppeal = { appealType: wicketKind, onFieldDecision: 'OUT' };
+  } else if (!isWicket && runs === 0) {
+    const appealRoll = rng();
+    if (spin && appealRoll < 0.24) {
+      drsAppeal = {
+        appealType: appealRoll < 0.08 ? 'Stumped' : 'LBW',
+        onFieldDecision: 'NOT_OUT',
+      };
+    } else if (!spin && deliveryLength !== 'short' && appealRoll < 0.18) {
+      drsAppeal = {
+        appealType: 'LBW',
+        onFieldDecision: 'NOT_OUT',
+      };
+    }
+  }
+
+  const landingPoint = computePitchLandingPoint({
+    deliveryType,
+    deliveryLength,
+    bowlingSide,
+    strikerHand: getBattingHand(params.strikerName),
+    paceSpeedKph: appliedPaceSpeedKph,
+    spinDegree: appliedSpinDegree,
+    rng,
   });
 
   return {
@@ -853,6 +1035,11 @@ export function resolveDelivery(params: {
     shotUsed: shot,
     deliveryUsed: deliveryType,
     lengthUsed: deliveryLength,
+    paceSpeedKph: appliedPaceSpeedKph,
+    spinDegree: appliedSpinDegree,
+    pitchDistanceM: landingPoint.pitchDistanceM,
+    lineOffsetCm: landingPoint.lineOffsetCm,
+    drsAppeal,
   };
 }
 
@@ -976,6 +1163,56 @@ function evaluateTestAfterInningsEnds(state: MatchState): {
 }
 
 export function applyDeliveryToMatch(
+  state: MatchState,
+  resolution: DeliveryResolution,
+  options?: { skipBowlerChallenge?: boolean }
+): { nextState: MatchState; enteredInningsBreak: boolean; matchFinished: boolean } {
+  const preActive = getActiveInnings(state);
+  const preStrikerIndex = preActive.strikerIndex;
+  const preStrikerName = preActive.batters[preStrikerIndex]?.name ?? 'Batter';
+  const preBowlerName = preActive.bowlerName;
+  const userControlsBowling =
+    state.mode === 'pvp' || preActive.bowlingTeamId === state.homeTeamId;
+
+  const result = applyDeliveryToMatchCore(state, resolution);
+  const postActive = getActiveInnings(result.nextState);
+  const overCompleted =
+    postActive.ballsBowled > preActive.ballsBowled && postActive.ballsBowled % 6 === 0;
+
+  let pendingBowlerChallenge: BowlerDrsChallenge | null = null;
+  if (
+    !options?.skipBowlerChallenge &&
+    !result.enteredInningsBreak &&
+    !result.matchFinished &&
+    !result.nextState.pendingMilestonePopup &&
+    !result.nextState.pendingDlsPopup &&
+    !result.nextState.pendingDayPopup &&
+    !resolution.isWicket &&
+    resolution.runs === 0 &&
+    userControlsBowling
+  ) {
+    pendingBowlerChallenge = {
+      id: result.nextState.commentaryLog[0]?.id ?? postActive.ballsBowled,
+      resolution,
+      strikerIndex: preStrikerIndex,
+      strikerName: preStrikerName,
+      bowlerName: preBowlerName,
+      overCompleted,
+      isSpin: isSpinDelivery(resolution.deliveryUsed),
+      timeLimitSec: DRS_TIME_LIMIT_SEC,
+    };
+  }
+
+  return {
+    ...result,
+    nextState: {
+      ...result.nextState,
+      pendingBowlerChallenge,
+    },
+  };
+}
+
+function applyDeliveryToMatchCore(
   state: MatchState,
   resolution: DeliveryResolution
 ): { nextState: MatchState; enteredInningsBreak: boolean; matchFinished: boolean } {
@@ -1174,6 +1411,38 @@ export function applyDeliveryToMatch(
     currentOverWickets = 0;
   }
 
+  const overBallLabel = formatOvers(ballsBowled);
+  const fallbackPoint =
+    resolution.pitchDistanceM !== undefined && resolution.lineOffsetCm !== undefined
+      ? {
+          pitchDistanceM: resolution.pitchDistanceM,
+          lineOffsetCm: resolution.lineOffsetCm,
+        }
+      : computePitchLandingPoint({
+          deliveryType: resolution.deliveryUsed,
+          deliveryLength: resolution.lengthUsed,
+          bowlingSide: state.bowlingSide,
+          strikerHand: getBattingHand(dismissedBatterName),
+          paceSpeedKph: resolution.paceSpeedKph,
+          spinDegree: resolution.spinDegree,
+        });
+
+  const pitchRecord: PitchBallRecord = {
+    id: ballsBowled,
+    overBall: overBallLabel,
+    length: resolution.lengthUsed,
+    deliveryType: resolution.deliveryUsed,
+    pitchDistanceM: fallbackPoint.pitchDistanceM,
+    lineOffsetCm: fallbackPoint.lineOffsetCm,
+    runs: ballRuns,
+    isWicket: resolution.isWicket,
+    ballSymbol: resolution.ballSymbol,
+    bowlerName: overBowlerName,
+    paceSpeedKph: resolution.paceSpeedKph,
+    spinDegree: resolution.spinDegree,
+  };
+  const recentPitchBalls = appendRecentPitchBall(active.recentPitchBalls, pitchRecord);
+
   const updatedInnings: InningsState = {
     ...active,
     runs,
@@ -1183,6 +1452,7 @@ export function applyDeliveryToMatch(
     currentOverRuns,
     currentOverWickets,
     overHistory,
+    recentPitchBalls,
     strikerIndex,
     nonStrikerIndex,
     nextBatterIndex,
@@ -1196,7 +1466,6 @@ export function applyDeliveryToMatch(
     bowlerSpells,
   };
 
-  const overBallLabel = formatOvers(ballsBowled);
   const newEntry: CommentaryEntry = {
     id: (state.commentaryLog[0]?.id ?? 0) + 1,
     overBall: overBallLabel,
@@ -1851,6 +2120,7 @@ export function dismissOverPopup(state: MatchState): MatchState {
   return {
     ...state,
     pendingOverPopup: null,
+    pendingBowlerChallenge: null,
   };
 }
 
@@ -1988,6 +2258,7 @@ export function startNextInnings(state: MatchState): MatchState {
       pendingDayPopup: null,
       pendingMilestonePopup: null,
       pendingDlsPopup: null,
+      pendingDrsPopup: null,
       pvpTurnPhase: 'bowl_select',
       lastOutcome: null,
       lastCommentary: startMsg,
@@ -2042,6 +2313,7 @@ export function startNextInnings(state: MatchState): MatchState {
     pendingOverPopup: null,
     pendingDayPopup: null,
     pendingMilestonePopup: null,
+    pendingDrsPopup: null,
     pvpTurnPhase: 'bowl_select',
     lastOutcome: null,
     lastCommentary: startMsg,
@@ -2162,3 +2434,645 @@ export function simulateFullMatch(params: {
 
   return state;
 }
+
+export function beginDrsOrApplyDelivery(
+  state: MatchState,
+  resolution: DeliveryResolution,
+  rng: () => number = Math.random
+): {
+  nextState: MatchState;
+  enteredInningsBreak: boolean;
+  matchFinished: boolean;
+  drsOpened: boolean;
+} {
+  const appeal = resolution.drsAppeal;
+  if (!appeal || !isEligibleDrsDecision(appeal.appealType)) {
+    const applied = applyDeliveryToMatch(state, resolution);
+    return { ...applied, drsOpened: false };
+  }
+
+  const active = getActiveInnings(state);
+  const { appealType, onFieldDecision } = appeal;
+  const isStumpingReferral = appealType === 'Stumped';
+  const requestingSide = onFieldDecision === 'OUT' ? 'batting' : 'bowling';
+  const reviewsRemaining =
+    requestingSide === 'batting'
+      ? active.battingReviewsRemaining ?? getDrsAllowance(state.format, state.totalOvers)
+      : active.bowlingReviewsRemaining ?? getDrsAllowance(state.format, state.totalOvers);
+  const maxReviews = getDrsAllowance(
+    state.format,
+    state.originalTotalOvers ?? state.totalOvers
+  );
+
+  // Stumping appeals are referred directly by the on-field umpire to the Third Umpire (no DRS review lost)
+  const requestingTeamId =
+    requestingSide === 'batting' ? active.battingTeamId : active.bowlingTeamId;
+  const reqTeam = getTeamById(requestingTeamId, {
+    format: state.format,
+    totalOvers: state.totalOvers,
+  });
+  const strikerName = active.batters[active.strikerIndex]?.name ?? 'Batter';
+  const requestingPlayerName =
+    requestingSide === 'batting'
+      ? strikerName
+      : `${active.bowlerName} / ${reqTeam.batters[0] ?? reqTeam.code} (Capt.)`;
+  const promptId = (state.commentaryLog[0]?.id ?? 0) + 1;
+
+  if (isStumpingReferral) {
+    const evaluated = evaluateDrsVerdict({
+      appealType: 'Stumped',
+      onFieldDecision,
+      reviewsRemaining,
+      isUmpireReferral: true,
+      rng,
+    });
+    const prompt: DrsPromptState = {
+      id: promptId,
+      resolution,
+      appealType: 'Stumped',
+      onFieldDecision,
+      requestingSide: 'bowling',
+      requestingTeamId: active.bowlingTeamId,
+      requestingPlayerName: `${active.bowlerName} & Keeper`,
+      reviewsRemaining: active.bowlingReviewsRemaining ?? maxReviews,
+      maxReviews,
+      timeLimitSec: DRS_TIME_LIMIT_SEC,
+      triggeredByUser: true,
+      referralKind: 'umpire_stumping',
+      phase: 'third_umpire',
+      tracking: evaluated.tracking,
+      stumpingCheck: evaluated.stumpingCheck,
+      thirdUmpireOutcome: evaluated.thirdUmpireOutcome,
+      finalDecisionIsOut: evaluated.finalDecisionIsOut,
+      reviewRetained: true,
+      verdictSummary: evaluated.verdictSummary,
+    };
+
+    return {
+      nextState: {
+        ...state,
+        pendingBowlerChallenge: null,
+        pendingDrsPopup: prompt,
+        lastCommentary: `STUMPING APPEAL! On-field umpire refers it to the Third Umpire for ${strikerName}.`,
+      },
+      enteredInningsBreak: false,
+      matchFinished: false,
+      drsOpened: true,
+    };
+  }
+
+  // LBW DRS: requires remaining team reviews in this innings
+  if (reviewsRemaining <= 0) {
+    const cleanRes: DeliveryResolution = { ...resolution, drsAppeal: undefined };
+    const applied = applyDeliveryToMatch(state, cleanRes, { skipBowlerChallenge: true });
+    return { ...applied, drsOpened: false };
+  }
+
+  const triggeredByUser =
+    state.mode === 'pvp' || requestingTeamId === state.homeTeamId;
+
+  if (!triggeredByUser) {
+    const aiRequests = shouldAiRequestDrs({
+      appealType,
+      onFieldDecision,
+      reviewsRemaining,
+      rng,
+    });
+    if (!aiRequests) {
+      const cleanRes: DeliveryResolution = { ...resolution, drsAppeal: undefined };
+      const applied = applyDeliveryToMatch(state, cleanRes, { skipBowlerChallenge: true });
+      return { ...applied, drsOpened: false };
+    }
+
+    const evaluated = evaluateDrsVerdict({
+      appealType,
+      onFieldDecision,
+      reviewsRemaining,
+      rng,
+    });
+    const referralMsg =
+      onFieldDecision === 'OUT'
+        ? `Opponent ${reqTeam.code} (${strikerName}) signals "T" to challenge ${appealType} OUT! Third Umpire checking...`
+        : `Opponent ${reqTeam.code} (${active.bowlerName}) signals "T" for ${appealType} DRS vs ${strikerName}! Third Umpire checking...`;
+    const prompt: DrsPromptState = {
+      id: promptId,
+      resolution,
+      appealType,
+      onFieldDecision,
+      requestingSide,
+      requestingTeamId,
+      requestingPlayerName,
+      reviewsRemaining,
+      maxReviews,
+      timeLimitSec: DRS_TIME_LIMIT_SEC,
+      triggeredByUser: false,
+      referralKind: 'drs',
+      phase: 'third_umpire',
+      tracking: evaluated.tracking,
+      stumpingCheck: evaluated.stumpingCheck,
+      thirdUmpireOutcome: evaluated.thirdUmpireOutcome,
+      finalDecisionIsOut: evaluated.finalDecisionIsOut,
+      reviewRetained: evaluated.reviewRetained,
+      verdictSummary: evaluated.verdictSummary,
+    };
+
+    return {
+      nextState: {
+        ...state,
+        pendingBowlerChallenge: null,
+        pendingDrsPopup: prompt,
+        lastCommentary: referralMsg,
+      },
+      enteredInningsBreak: false,
+      matchFinished: false,
+      drsOpened: true,
+    };
+  }
+
+  const prompt: DrsPromptState = {
+    id: promptId,
+    resolution,
+    appealType,
+    onFieldDecision,
+    requestingSide,
+    requestingTeamId,
+    requestingPlayerName,
+    reviewsRemaining,
+    maxReviews,
+    timeLimitSec: DRS_TIME_LIMIT_SEC,
+    triggeredByUser: true,
+    referralKind: 'drs',
+    phase: 'signal',
+  };
+
+  return {
+    nextState: {
+      ...state,
+      pendingBowlerChallenge: null,
+      pendingDrsPopup: prompt,
+      lastCommentary:
+        onFieldDecision === 'OUT'
+          ? `On-field Umpire raises finger (${appealType} OUT)! ${requestingPlayerName} has ${DRS_TIME_LIMIT_SEC}s to signal DRS.`
+          : `Huge ${appealType} appeal turned down (NOT OUT)! ${active.bowlerName} & ${reqTeam.code} have ${DRS_TIME_LIMIT_SEC}s to take DRS.`,
+    },
+    enteredInningsBreak: false,
+    matchFinished: false,
+    drsOpened: true,
+  };
+}
+
+export function clearBowlerChallenge(state: MatchState): MatchState {
+  if (!state.pendingBowlerChallenge) return state;
+  return {
+    ...state,
+    pendingBowlerChallenge: null,
+  };
+}
+
+export function requestPostBallBowlerChallenge(
+  state: MatchState,
+  appealType: 'LBW' | 'Stumped',
+  rng: () => number = Math.random
+): MatchState {
+  const challenge = state.pendingBowlerChallenge;
+  if (!challenge || state.pendingDrsPopup || state.matchComplete) return state;
+  if (appealType === 'Stumped' && !challenge.isSpin) return state;
+
+  const active = getActiveInnings(state);
+  const maxReviews = getDrsAllowance(
+    state.format,
+    state.originalTotalOvers ?? state.totalOvers
+  );
+  const reviewsRemaining = active.bowlingReviewsRemaining ?? maxReviews;
+  const isStumping = appealType === 'Stumped';
+
+  if (!isStumping && reviewsRemaining <= 0) return state;
+
+  const bowlTeam = getTeamById(active.bowlingTeamId, {
+    format: state.format,
+    totalOvers: state.totalOvers,
+  });
+
+  const evaluated = evaluateDrsVerdict({
+    appealType,
+    onFieldDecision: 'NOT_OUT',
+    reviewsRemaining,
+    isUmpireReferral: isStumping,
+    isSpeculativePostBall: true,
+    rng,
+  });
+
+  const prompt: DrsPromptState = {
+    id: (state.commentaryLog[0]?.id ?? 0) + 1,
+    resolution: challenge.resolution,
+    appealType,
+    onFieldDecision: 'NOT_OUT',
+    requestingSide: 'bowling',
+    requestingTeamId: active.bowlingTeamId,
+    requestingPlayerName: isStumping
+      ? `${challenge.bowlerName} & Keeper`
+      : `${challenge.bowlerName} / ${bowlTeam.batters[0] ?? bowlTeam.code} (Capt.)`,
+    reviewsRemaining,
+    maxReviews,
+    timeLimitSec: DRS_TIME_LIMIT_SEC,
+    triggeredByUser: true,
+    referralKind: isStumping ? 'umpire_stumping' : 'drs',
+    isPostBallChallenge: true,
+    challengeTargetBatterIndex: challenge.strikerIndex,
+    challengeBowlerName: challenge.bowlerName,
+    challengeOverCompleted: challenge.overCompleted,
+    phase: 'third_umpire',
+    tracking: evaluated.tracking,
+    stumpingCheck: evaluated.stumpingCheck,
+    thirdUmpireOutcome: evaluated.thirdUmpireOutcome,
+    finalDecisionIsOut: evaluated.finalDecisionIsOut,
+    reviewRetained: evaluated.reviewRetained,
+    verdictSummary: evaluated.verdictSummary,
+  };
+
+  return {
+    ...state,
+    pendingBowlerChallenge: null,
+    pendingDrsPopup: prompt,
+    lastCommentary: isStumping
+      ? `${challenge.bowlerName} appeals for Stumping! Referred to Third Umpire...`
+      : `${challenge.bowlerName} & ${bowlTeam.code} signal "T" for DRS (${appealType})! Referred to Third Umpire...`,
+  };
+}
+
+export function requestDrsReview(
+  state: MatchState,
+  rng: () => number = Math.random
+): MatchState {
+  const prompt = state.pendingDrsPopup;
+  if (!prompt || prompt.phase !== 'signal') return state;
+
+  const reqTeam = getTeamById(prompt.requestingTeamId);
+  const evaluated = evaluateDrsVerdict({
+    appealType: prompt.appealType,
+    onFieldDecision: prompt.onFieldDecision,
+    reviewsRemaining: prompt.reviewsRemaining,
+    isUmpireReferral: prompt.referralKind === 'umpire_stumping',
+    rng,
+  });
+
+  const referralMsg = `${reqTeam.code} signal "T" for DRS (${prompt.appealType})! Referred to Third Umpire.`;
+
+  return {
+    ...state,
+    lastCommentary: referralMsg,
+    pendingDrsPopup: {
+      ...prompt,
+      phase: 'third_umpire',
+      tracking: evaluated.tracking,
+      stumpingCheck: evaluated.stumpingCheck,
+      thirdUmpireOutcome: evaluated.thirdUmpireOutcome,
+      finalDecisionIsOut: evaluated.finalDecisionIsOut,
+      reviewRetained: evaluated.reviewRetained,
+      verdictSummary: evaluated.verdictSummary,
+    },
+  };
+}
+
+export function revealDrsVerdict(state: MatchState): MatchState {
+  const prompt = state.pendingDrsPopup;
+  if (!prompt || prompt.phase !== 'third_umpire') return state;
+  return {
+    ...state,
+    pendingDrsPopup: {
+      ...prompt,
+      phase: 'verdict',
+    },
+  };
+}
+
+function convertPostBallChallengeToWicket(
+  stateWithReviews: MatchState,
+  prompt: DrsPromptState,
+  finalResolution: DeliveryResolution
+): {
+  nextState: MatchState;
+  enteredInningsBreak: boolean;
+  matchFinished: boolean;
+} {
+  const active = getActiveInnings(stateWithReviews);
+  const targetIdx = prompt.challengeTargetBatterIndex ?? active.strikerIndex;
+  const targetBowlerName = prompt.challengeBowlerName ?? active.bowlerName;
+  const nextBatters = active.batters.map((b) => ({ ...b }));
+  const dismissedBatter = nextBatters[targetIdx];
+  const dismissedName = dismissedBatter?.name ?? 'Batter';
+  if (dismissedBatter) {
+    dismissedBatter.out = true;
+    dismissedBatter.dismissal = prompt.appealType;
+  }
+
+  const wickets = active.wickets + 1;
+  const prevSpell: BowlerSpellStat = active.bowlerSpells?.[targetBowlerName] ?? {
+    balls: 1,
+    runs: 0,
+    wickets: 0,
+  };
+  const bowlerSpells: Record<string, BowlerSpellStat> = {
+    ...(active.bowlerSpells ?? {}),
+    [targetBowlerName]: {
+      ...prevSpell,
+      wickets: prevSpell.wickets + 1,
+    },
+  };
+
+  const bowlerWickets = prompt.challengeOverCompleted
+    ? active.bowlerWickets
+    : active.bowlerWickets + 1;
+
+  const currentOverBalls = [...active.currentOverBalls];
+  if (currentOverBalls.length > 0) {
+    currentOverBalls[currentOverBalls.length - 1] = 'W';
+  }
+  const currentOverWickets = prompt.challengeOverCompleted
+    ? active.currentOverWickets
+    : active.currentOverWickets + 1;
+
+  let overHistory = active.overHistory ?? [];
+  if (prompt.challengeOverCompleted && overHistory.length > 0) {
+    const lastIdx = overHistory.length - 1;
+    overHistory = overHistory.map((pt, idx) =>
+      idx === lastIdx
+        ? {
+            ...pt,
+            wicketsInOver: pt.wicketsInOver + 1,
+            cumulativeWickets: pt.cumulativeWickets + 1,
+          }
+        : pt
+    );
+  }
+
+  const recentPitchBalls = [...(active.recentPitchBalls ?? [])];
+  if (recentPitchBalls.length > 0) {
+    const lastBall = recentPitchBalls[recentPitchBalls.length - 1];
+    recentPitchBalls[recentPitchBalls.length - 1] = {
+      ...lastBall,
+      isWicket: true,
+      ballSymbol: 'W',
+    };
+  }
+
+  let strikerIndex = active.strikerIndex;
+  let nonStrikerIndex = active.nonStrikerIndex;
+  let nextBatterIndex = active.nextBatterIndex;
+  let pendingBatterPopup: NextBatterPrompt | null = null;
+
+  if (wickets < 10) {
+    const targetIsStriker = strikerIndex === targetIdx;
+    const survivingIdx = targetIsStriker ? nonStrikerIndex : strikerIndex;
+    const nextUnusedIdx = nextBatters.findIndex(
+      (b, idx) => !b.out && idx !== survivingIdx
+    );
+    if (nextUnusedIdx !== -1) {
+      if (targetIsStriker) strikerIndex = nextUnusedIdx;
+      else nonStrikerIndex = nextUnusedIdx;
+      nextBatterIndex = Math.min(nextBatters.length, nextUnusedIdx + 1);
+
+      const userControlsBatting =
+        stateWithReviews.mode === 'pvp' ||
+        active.battingTeamId === stateWithReviews.homeTeamId;
+      if (userControlsBatting) {
+        pendingBatterPopup = {
+          dismissedBatterName: dismissedName,
+          dismissedKind: prompt.appealType,
+          teamId: active.battingTeamId,
+          wickets,
+          replacingSlot: targetIsStriker ? 'striker' : 'nonStriker',
+          selectedBatterIndex: nextUnusedIdx,
+        };
+      }
+    }
+  }
+
+  const updatedOverPopup =
+    prompt.challengeOverCompleted && stateWithReviews.pendingOverPopup
+      ? {
+          ...stateWithReviews.pendingOverPopup,
+          balls: currentOverBalls,
+          wicketsTaken: stateWithReviews.pendingOverPopup.wicketsTaken + 1,
+          teamWickets: wickets,
+        }
+      : stateWithReviews.pendingOverPopup;
+
+  const updatedInnings: InningsState = {
+    ...active,
+    wickets,
+    partnershipRuns: 0,
+    partnershipBalls: 0,
+    batters: nextBatters,
+    strikerIndex,
+    nonStrikerIndex,
+    nextBatterIndex,
+    bowlerWickets,
+    bowlerSpells,
+    currentOverBalls,
+    currentOverWickets,
+    overHistory,
+    recentPitchBalls,
+  };
+
+  let nextState = updateMatchWithInnings(
+    {
+      ...stateWithReviews,
+      lastOutcome: finalResolution,
+      lastCommentary: finalResolution.commentary,
+      pendingBatterPopup,
+      pendingOverPopup: updatedOverPopup,
+    },
+    updatedInnings
+  );
+
+  if (stateWithReviews.format === 'test') {
+    nextState = {
+      ...nextState,
+      wicketsToday: (nextState.wicketsToday ?? 0) + 1,
+    };
+    if (wickets >= 10) {
+      const evalRes = evaluateTestAfterInningsEnds(nextState);
+      return {
+        ...evalRes,
+        nextState: {
+          ...evalRes.nextState,
+          pendingOverPopup: null,
+          pendingDayPopup: null,
+          pendingBatterPopup: null,
+        },
+      };
+    }
+    return {
+      nextState,
+      enteredInningsBreak: false,
+      matchFinished: false,
+    };
+  }
+
+  // Limited overs all out check
+  if (wickets >= 10) {
+    if (stateWithReviews.inningsNumber === 1) {
+      const origOvers = stateWithReviews.originalTotalOvers ?? stateWithReviews.totalOvers;
+      const r1 = nextState.innings1ResourcesPct ?? 100;
+      const r2 = nextState.innings2ResourcesPct ?? 100;
+      const inn1Target =
+        Math.abs(r2 - r1) >= 0.05
+          ? calculateDlsTarget({
+              team1Score: updatedInnings.runs,
+              team1ResourcesPct: r1,
+              team2ResourcesPct: r2,
+              originalMaxOvers: origOvers,
+            }).target
+          : updatedInnings.runs + 1;
+      return {
+        nextState: {
+          ...nextState,
+          target: inn1Target,
+          pendingOverPopup: null,
+          pendingBatterPopup: null,
+        },
+        enteredInningsBreak: true,
+        matchFinished: false,
+      };
+    }
+
+    const defendingTeam = getTeamById(updatedInnings.bowlingTeamId);
+    const target = stateWithReviews.target ?? stateWithReviews.innings1.runs + 1;
+    const dlsSuffix = stateWithReviews.dlsApplied ? ' (DLS Method)' : '';
+    const margin = Math.max(0, target - 1 - updatedInnings.runs);
+    const tied = updatedInnings.runs === target - 1;
+    return {
+      nextState: {
+        ...nextState,
+        pendingOverPopup: null,
+        pendingBatterPopup: null,
+        matchComplete: true,
+        winnerTeamId: tied ? 'tie' : defendingTeam.id,
+        resultSummary: tied
+          ? `Match Tied! Both sides level on ${updatedInnings.runs} runs${dlsSuffix}.`
+          : `${defendingTeam.name} won by ${margin} ${margin === 1 ? 'run' : 'runs'}${dlsSuffix}!`,
+      },
+      enteredInningsBreak: false,
+      matchFinished: true,
+    };
+  }
+
+  return {
+    nextState,
+    enteredInningsBreak: false,
+    matchFinished: false,
+  };
+}
+
+export function completeDrsThirdUmpire(state: MatchState): {
+  nextState: MatchState;
+  enteredInningsBreak: boolean;
+  matchFinished: boolean;
+} {
+  const prompt = state.pendingDrsPopup;
+  if (!prompt) {
+    return { nextState: state, enteredInningsBreak: false, matchFinished: false };
+  }
+
+  const active = getActiveInnings(state);
+  const targetIdx = prompt.challengeTargetBatterIndex ?? active.strikerIndex;
+  const strikerName = active.batters[targetIdx]?.name ?? 'Batter';
+  const finalDecisionIsOut =
+    prompt.finalDecisionIsOut ?? prompt.onFieldDecision === 'OUT';
+  const isUmpireReferral = prompt.referralKind === 'umpire_stumping';
+  const reviewRetained = isUmpireReferral || (prompt.reviewRetained ?? true);
+  const nextReviewsRemaining = reviewRetained
+    ? prompt.reviewsRemaining
+    : Math.max(0, prompt.reviewsRemaining - 1);
+
+  const updatedInnings: InningsState = {
+    ...active,
+    battingReviewsRemaining:
+      !isUmpireReferral && prompt.requestingSide === 'batting'
+        ? nextReviewsRemaining
+        : active.battingReviewsRemaining,
+    bowlingReviewsRemaining:
+      !isUmpireReferral && prompt.requestingSide === 'bowling'
+        ? nextReviewsRemaining
+        : active.bowlingReviewsRemaining,
+  };
+
+  const verdictSummary =
+    prompt.verdictSummary ??
+    `3rd Umpire: ${finalDecisionIsOut ? 'OUT' : 'NOT OUT'}.`;
+
+  const outcomeTag = isUmpireReferral ? '3RD' : 'DRS';
+  const drsLogEntry: CommentaryEntry = {
+    id: (state.commentaryLog[0]?.id ?? 0) + 1,
+    overBall: formatOvers(active.ballsBowled),
+    outcomeSymbol: outcomeTag,
+    text: `${getTeamById(prompt.requestingTeamId).code} ${
+      isUmpireReferral ? '3rd Umpire' : 'DRS'
+    } (${prompt.appealType}): ${verdictSummary}`,
+    isWicket: finalDecisionIsOut,
+    isBoundary: false,
+  };
+
+  const stateWithReviews = updateMatchWithInnings(
+    {
+      ...state,
+      pendingDrsPopup: null,
+      pendingBowlerChallenge: null,
+      commentaryLog: [drsLogEntry, ...state.commentaryLog].slice(0, 30),
+    },
+    updatedInnings
+  );
+
+  const finalResolution = applyDrsVerdictToResolution({
+    resolution: prompt.resolution,
+    appealType: prompt.appealType,
+    finalDecisionIsOut,
+    strikerName,
+    bowlerName: prompt.challengeBowlerName ?? active.bowlerName,
+    verdictSummary,
+  });
+
+  if (prompt.isPostBallChallenge) {
+    if (!finalDecisionIsOut) {
+      return {
+        nextState: {
+          ...stateWithReviews,
+          lastCommentary: finalResolution.commentary,
+        },
+        enteredInningsBreak: false,
+        matchFinished: false,
+      };
+    }
+    return convertPostBallChallengeToWicket(stateWithReviews, prompt, finalResolution);
+  }
+
+  return applyDeliveryToMatch(stateWithReviews, finalResolution, {
+    skipBowlerChallenge: true,
+  });
+}
+
+export function declineOrExpireDrsReview(state: MatchState): {
+  nextState: MatchState;
+  enteredInningsBreak: boolean;
+  matchFinished: boolean;
+} {
+  const prompt = state.pendingDrsPopup;
+  if (!prompt) {
+    return { nextState: state, enteredInningsBreak: false, matchFinished: false };
+  }
+  const cleanRes: DeliveryResolution = {
+    ...prompt.resolution,
+    drsAppeal: undefined,
+  };
+  return applyDeliveryToMatch(
+    {
+      ...state,
+      pendingDrsPopup: null,
+      pendingBowlerChallenge: null,
+    },
+    cleanRes,
+    { skipBowlerChallenge: true }
+  );
+}
+

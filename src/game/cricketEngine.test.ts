@@ -8,12 +8,17 @@ import {
   calculateRunRate,
   chooseAiDelivery,
   chooseAiShot,
+  clampPaceSpeedKph,
+  clampSpinDegree,
   computePredictedTotal,
   createInitialMatchState,
   dismissMilestonePopup,
   dismissOverPopup,
   formatOvers,
+  getDeliveryAnimDurationSec,
   getMaxOversPerBowler,
+  getPaceSpeedLabel,
+  getSpinDegreeLabel,
   isBowlerQuotaExhausted,
   isSpinDelivery,
   resolveDelivery,
@@ -847,6 +852,139 @@ test('limited-overs bowler quota caps T20 at 4 overs and ODI at 10 overs per bow
   assert.equal(accepted.innings1.bowlerName, thirdBowler);
   assert.equal(accepted.pendingOverPopup?.nextBowlerName, thirdBowler);
 });
+
+test('pacer speed (120-155 kph) and spinner turn degree (1-12 deg) clamp, label, animate, and affect delivery outcomes', () => {
+  assert.equal(clampPaceSpeedKph(90), 120);
+  assert.equal(clampPaceSpeedKph(175), 155);
+  assert.equal(clampPaceSpeedKph(147.6), 148);
+  assert.equal(getPaceSpeedLabel(124), 'Slower');
+  assert.equal(getPaceSpeedLabel(134), 'Medium');
+  assert.equal(getPaceSpeedLabel(142), 'Fast');
+  assert.equal(getPaceSpeedLabel(152), 'Express');
+
+  assert.equal(clampSpinDegree(-2), 1);
+  assert.equal(clampSpinDegree(20), 12);
+  assert.equal(clampSpinDegree(8.4), 8);
+  assert.equal(getSpinDegreeLabel(2), 'Skidder');
+  assert.equal(getSpinDegreeLabel(6), 'Stock');
+  assert.equal(getSpinDegreeLabel(11), 'Ripper');
+
+  // Express pace travels faster down the pitch than slower pace
+  assert.ok(getDeliveryAnimDurationSec('fast', 155) < getDeliveryAnimDurationSec('fast', 120));
+  assert.equal(getDeliveryAnimDurationSec('off_spin', 155), 1.55);
+
+  const fastRes = resolveDelivery({
+    shot: 'drive',
+    deliveryType: 'fast',
+    deliveryLength: 'full',
+    difficulty: 'medium',
+    playerIsBatting: false,
+    strikerName: 'Steve Smith',
+    bowlerName: 'Jasprit Bumrah',
+    paceSpeedKph: 152,
+    rng: () => 0.4,
+  });
+  assert.equal(fastRes.paceSpeedKph, 152);
+  assert.equal(fastRes.spinDegree, undefined);
+  assert.match(fastRes.commentary, /152 kph/);
+
+  const spinRes = resolveDelivery({
+    shot: 'drive',
+    deliveryType: 'leg_spin',
+    deliveryLength: 'good',
+    difficulty: 'medium',
+    playerIsBatting: false,
+    strikerName: 'Joe Root',
+    bowlerName: 'Kuldeep Yadav',
+    spinDegree: 11,
+    rng: () => 0.4,
+  });
+  assert.equal(spinRes.spinDegree, 11);
+  assert.equal(spinRes.paceSpeedKph, undefined);
+  assert.match(spinRes.commentary, /11° spin/);
+
+  // Higher spin degree on a dry pitch produces more wickets across a deterministic sample
+  let lowSpinWickets = 0;
+  let highSpinWickets = 0;
+  for (let i = 0; i < 1000; i++) {
+    const r = (i + 0.5) / 1000;
+    if (
+      resolveDelivery({
+        shot: 'drive',
+        deliveryType: 'off_spin',
+        deliveryLength: 'good',
+        difficulty: 'medium',
+        playerIsBatting: false,
+        strikerName: 'Batter',
+        bowlerName: 'Spinner',
+        pitchCondition: 'dry',
+        spinDegree: 5,
+        rng: () => r,
+      }).isWicket
+    ) {
+      lowSpinWickets++;
+    }
+    if (
+      resolveDelivery({
+        shot: 'drive',
+        deliveryType: 'off_spin',
+        deliveryLength: 'good',
+        difficulty: 'medium',
+        playerIsBatting: false,
+        strikerName: 'Batter',
+        bowlerName: 'Spinner',
+        pitchCondition: 'dry',
+        spinDegree: 12,
+        rng: () => r,
+      }).isWicket
+    ) {
+      highSpinWickets++;
+    }
+  }
+  assert.ok(highSpinWickets > lowSpinWickets);
+
+  const aiPace = chooseAiDelivery('hard', () => 0.5, 'green', 'pace');
+  assert.ok(aiPace.paceSpeedKph !== undefined && aiPace.paceSpeedKph >= 120 && aiPace.paceSpeedKph <= 155);
+  const aiSpin = chooseAiDelivery('hard', () => 0.5, 'dry', 'spin');
+  assert.ok(aiSpin.spinDegree !== undefined && aiSpin.spinDegree >= 1 && aiSpin.spinDegree <= 12);
+});
+
+test('Hit Wicket dismissal is completely removed and Caught wickets project out to fielders with weather-scaled duration', () => {
+  const seenKinds = new Set<string>();
+  let caughtCount = 0;
+
+  for (let i = 0; i < 1000; i++) {
+    const res = resolveDelivery({
+      shot: 'loft',
+      deliveryType: i % 2 === 0 ? 'fast' : 'swing',
+      deliveryLength: 'good',
+      difficulty: 'hard',
+      playerIsBatting: true,
+      strikerName: 'Batter',
+      bowlerName: 'Bowler',
+      rng: () => (i * 0.0001) % 0.08,
+    });
+    if (res.isWicket) {
+      assert.ok(res.wicketKind, 'Wicket delivery must specify wicketKind');
+      assert.notEqual(res.wicketKind as string, 'Hit Wicket');
+      seenKinds.add(res.wicketKind);
+      if (res.wicketKind === 'Caught') {
+        caughtCount++;
+        assert.ok(res.hitDistanceFactor >= 0.4, 'Caught ball should travel toward outfielders');
+      }
+    }
+  }
+
+  assert.ok(caughtCount > 0, 'Expected Caught wickets to trigger cleanly');
+  assert.equal(seenKinds.has('Hit Wicket'), false);
+
+  const clearDur = getDeliveryAnimDurationSec('fast', 140, 'clear', false);
+  const drizzleDur = getDeliveryAnimDurationSec('fast', 140, 'drizzle', false);
+  const rainDelayDur = getDeliveryAnimDurationSec('fast', 140, 'drizzle', true);
+  assert.ok(drizzleDur > clearDur);
+  assert.ok(rainDelayDur > drizzleDur);
+});
+
 
 
 

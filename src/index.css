@@ -103,3 +103,58 @@
 .animate-modal-pop {
   animation: modalPop 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+@keyframes coinLand {
+  0% {
+    opacity: 0.75;
+    transform: scale(1.16) rotateY(28deg);
+    box-shadow: 0 0 46px rgba(250, 204, 21, 0.75);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.95) rotateY(-8deg);
+    box-shadow: 0 0 38px rgba(250, 204, 21, 0.55);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotateY(0deg);
+    box-shadow: 0 0 30px rgba(250, 204, 21, 0.42);
+  }
+}
+
+.animate-coin-land {
+  animation: coinLand 0.52s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes tossResultReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.95);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+.animate-toss-result {
+  animation: tossResultReveal 0.48s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes tossActionReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-toss-actions {
+  animation: tossActionReveal 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both;
+}
+

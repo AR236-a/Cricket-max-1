@@ -9,7 +9,7 @@ import {
 
 const DELIVERY_FLAVOR: Record<DeliveryType, Record<DeliveryLength, string>> = {
   fast: {
-    full: '145 kph thunderbolt pitched right up at the toes',
+    full: 'thunderbolt pitched right up at the toes',
     good: 'rapid hard-length fast ball hitting the deck',
     short: 'sharp fast delivery rising briskly off the turf',
   },
@@ -123,8 +123,6 @@ const WICKET_FLAVOR: Record<WicketKind, (bowler: string, striker: string, shot: 
     `PLUMB LBW! ${bowler} spears in a ${deliveryDesc}; ${striker} misses the ${shot.toUpperCase()} and the finger goes straight up!`,
   Stumped: (bowler, striker, shot, deliveryDesc) =>
     `STUMPED IN A FLASH! ${striker} charges down for a ${shot.toUpperCase()}, beaten by ${bowler}'s ${deliveryDesc}, and the keeper whips the bails off!`,
-  'Hit Wicket': (bowler, striker, shot, deliveryDesc) =>
-    `HIT WICKET! Cramped for room by ${bowler}'s ${deliveryDesc}, ${striker} steps back into the stumps while attempting a ${shot.toUpperCase()}!`,
 };
 
 export function buildDeliveryCommentary(params: {
@@ -139,6 +137,8 @@ export function buildDeliveryCommentary(params: {
   pitchCondition?: PitchCondition;
   weatherCondition?: WeatherCondition;
   bowlingSide?: 'over' | 'round';
+  paceSpeedKph?: number;
+  spinDegree?: number;
 }): string {
   const {
     bowlerName,
@@ -152,10 +152,18 @@ export function buildDeliveryCommentary(params: {
     pitchCondition,
     weatherCondition,
     bowlingSide,
+    paceSpeedKph,
+    spinDegree,
   } = params;
 
   const sideTag = bowlingSide === 'round' ? ' from around the wicket' : '';
-  const deliveryDesc = `${DELIVERY_FLAVOR[deliveryType][deliveryLength]}${sideTag}`;
+  const deliveryMetricTag =
+    typeof spinDegree === 'number'
+      ? ` (${spinDegree}° spin)`
+      : typeof paceSpeedKph === 'number'
+      ? ` (${paceSpeedKph} kph)`
+      : '';
+  const deliveryDesc = `${DELIVERY_FLAVOR[deliveryType][deliveryLength]}${deliveryMetricTag}${sideTag}`;
   const pitchTag =
     pitchCondition === 'green'
       ? ' off the green seamers deck'

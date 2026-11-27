@@ -1,5 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import {
+  clampSpinDegree,
+  DEFAULT_SPIN_DEGREE,
+  getDeliveryAnimDurationSec,
+} from '../game/cricketEngine';
+import { getWeatherBallPhysics, getWeatherPitchPalette } from '../game/dls';
+import {
   BattingHand,
   BowlingSide,
   DeliveryLength,
@@ -15,6 +21,8 @@ export interface BallAnimTrigger {
   id: number;
   deliveryType: DeliveryType;
   deliveryLength: DeliveryLength;
+  paceSpeedKph?: number;
+  spinDegree?: number;
   resolution: DeliveryResolution;
 }
 
@@ -169,11 +177,11 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
   useEffect(() => {
     bgDirtyRef.current = true;
     scheduleFrameRef.current?.();
-  }, [isPlaying, pitchCondition, weatherCondition]);
+  }, [isPlaying, pitchCondition, weatherCondition, isRainDelay]);
 
   useEffect(() => {
     scheduleFrameRef.current?.();
-  }, [isPaused, isRainDelay, strikerHand, bowlingSide, battingTeam, bowlingTeam]);
+  }, [isPaused, strikerHand, bowlingSide, battingTeam, bowlingTeam]);
 
   const particlesRef = useRef<Particle[]>(
     Array.from({ length: 36 }, () => ({
@@ -196,7 +204,12 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       active: true,
       trigger: animTrigger,
       elapsed: 0,
-      duration: 1.55,
+      duration: getDeliveryAnimDurationSec(
+        animTrigger.deliveryType,
+        animTrigger.paceSpeedKph,
+        propsRef.current.weatherCondition,
+        propsRef.current.isRainDelay
+      ),
       notified: false,
       trauma: 0,
       crowdExcitement: 0,
@@ -241,7 +254,8 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
 
       // Night Sky + Emerald Horizon (adjusted for weather atmosphere)
       const weatherMode = propsRef.current.weatherCondition;
-      const isGloomy = weatherMode === 'overcast' || weatherMode === 'drizzle';
+      const rainDelay = propsRef.current.isRainDelay;
+      const isGloomy = weatherMode === 'overcast' || weatherMode === 'drizzle' || rainDelay;
       const bgGrad = bgCtx.createRadialGradient(
         width * 0.5,
         height * 0.25,
@@ -291,13 +305,33 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
         bgCtx.fill();
       });
 
-      // Concentric emerald turf rings
+      const pitchMode = propsRef.current.pitchCondition;
+      const pitchPalette = getWeatherPitchPalette(pitchMode, weatherMode, rainDelay);
+
+      // Concentric emerald turf rings (darkened in overcast / damp rain conditions)
       for (let r = 6; r >= 1; r--) {
         const frac = r / 6;
-        bgCtx.fillStyle = r % 2 === 0 ? '#116322' : '#177a2b';
+        bgCtx.fillStyle =
+          r % 2 === 0 ? pitchPalette.outfieldEvenColor : pitchPalette.outfieldOddColor;
         bgCtx.beginPath();
         bgCtx.ellipse(cx, cy, rx * frac, ry * frac, 0, 0, Math.PI * 2);
         bgCtx.fill();
+      }
+
+      // Wet outfield rain puddles in drizzle / rain delay
+      if (pitchPalette.puddleOpacity > 0) {
+        const puddles = [
+          { dx: -0.42, dy: -0.28, prx: 24, pry: 11 },
+          { dx: 0.46, dy: 0.22, prx: 28, pry: 12 },
+          { dx: -0.34, dy: 0.44, prx: 20, pry: 9 },
+          { dx: 0.3, dy: -0.45, prx: 22, pry: 10 },
+        ];
+        bgCtx.fillStyle = `rgba(147, 197, 253, ${pitchPalette.puddleOpacity.toFixed(2)})`;
+        puddles.forEach((pd) => {
+          bgCtx.beginPath();
+          bgCtx.ellipse(cx + rx * pd.dx, cy + ry * pd.dy, pd.prx, pd.pry, 0.2, 0, Math.PI * 2);
+          bgCtx.fill();
+        });
       }
 
       // Boundary rope
@@ -317,27 +351,38 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       bgCtx.stroke();
       bgCtx.restore();
 
-      // Central Pitch colored & textured by pitchCondition
+      // Central Pitch colored & textured dynamically by pitchCondition + weatherCondition
       const pitchX = cx - pitchW / 2;
       const pitchY = cy - pitchH / 2;
-      const pitchMode = propsRef.current.pitchCondition;
 
-      if (pitchMode === 'green') {
-        bgCtx.fillStyle = '#799a54';
-        bgCtx.fillRect(pitchX, pitchY, pitchW, pitchH);
-        bgCtx.fillStyle = 'rgba(46, 102, 38, 0.25)';
-        bgCtx.fillRect(pitchX + 3, pitchY + 10, pitchW - 6, pitchH - 20);
-      } else if (pitchMode === 'dry') {
-        bgCtx.fillStyle = '#d7c195';
-        bgCtx.fillRect(pitchX, pitchY, pitchW, pitchH);
-        bgCtx.fillStyle = 'rgba(130, 92, 48, 0.22)';
+      bgCtx.fillStyle = pitchPalette.baseColor;
+      bgCtx.fillRect(pitchX, pitchY, pitchW, pitchH);
+
+      bgCtx.fillStyle = pitchPalette.accentColor;
+      if (pitchMode === 'dry') {
         bgCtx.fillRect(pitchX + 3, pitchY + pitchH * 0.62, pitchW * 0.35, 16);
         bgCtx.fillRect(pitchX + pitchW * 0.55, pitchY + pitchH * 0.28, pitchW * 0.35, 14);
       } else {
-        bgCtx.fillStyle = '#c8a774';
+        bgCtx.fillRect(pitchX + 3, pitchY + 10, pitchW - 6, pitchH - 20);
+      }
+
+      if (pitchPalette.moistureSheenColor) {
+        const sheenGrad = bgCtx.createLinearGradient(pitchX, pitchY, pitchX, pitchY + pitchH);
+        sheenGrad.addColorStop(0, pitchPalette.moistureSheenColor);
+        sheenGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.04)');
+        sheenGrad.addColorStop(1, pitchPalette.moistureSheenColor);
+        bgCtx.fillStyle = sheenGrad;
         bgCtx.fillRect(pitchX, pitchY, pitchW, pitchH);
-        bgCtx.fillStyle = 'rgba(139, 90, 43, 0.16)';
-        bgCtx.fillRect(pitchX + 4, pitchY + 12, pitchW - 8, pitchH - 24);
+      }
+
+      if (pitchPalette.puddleOpacity > 0) {
+        bgCtx.fillStyle = `rgba(147, 197, 253, ${(pitchPalette.puddleOpacity * 0.6).toFixed(2)})`;
+        bgCtx.beginPath();
+        bgCtx.ellipse(cx, pitchY + pitchH * 0.38, pitchW * 0.32, 6, 0, 0, Math.PI * 2);
+        bgCtx.fill();
+        bgCtx.beginPath();
+        bgCtx.ellipse(cx, pitchY + pitchH * 0.66, pitchW * 0.28, 5, 0, 0, Math.PI * 2);
+        bgCtx.fill();
       }
 
       const topCreaseY = pitchY + pitchH * 0.14;
@@ -403,6 +448,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
     let lastTime = performance.now();
     let totalTime = 0;
     let impactSpawnedForId = -1;
+    let catchSpawnedForId = -1;
     let rafId = 0;
     let timerId = 0;
     let rafPending = false;
@@ -611,8 +657,16 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       };
 
       const tNorm = anim.active && anim.trigger ? Math.min(1, anim.elapsed / anim.duration) : 0;
-      const isWicketShattered =
-        Boolean(anim.active && anim.trigger?.resolution.isWicket && tNorm >= 0.45);
+      const wicketKindNow = anim.trigger?.resolution.wicketKind;
+      const isCaughtWicket = Boolean(
+        anim.active && anim.trigger?.resolution.isWicket && wicketKindNow === 'Caught'
+      );
+      const isStumpShatteringWicket = Boolean(
+        anim.active &&
+          anim.trigger?.resolution.isWicket &&
+          (wicketKindNow === 'Bowled' || wicketKindNow === 'Stumped')
+      );
+      const isWicketShattered = Boolean(isStumpShatteringWicket && tNorm >= 0.45);
 
       drawStumps(cx, topCreaseY, false);
       drawStumps(cx, botCreaseY + 12, isWicketShattered);
@@ -662,52 +716,81 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
 
       let ballX = ballReleaseX;
       let ballY = bowlerY - 4;
+      let ballShadowX = ballX + 2;
+      let ballShadowY = ballY + 5;
       let ballRadius = 4.2;
       const ballVisible = anim.active;
 
       const batContactX = isLeftHanded ? cx - 6 : cx + 6;
       const batContactY = botCreaseY - 4;
 
+      // Resolve catcher target cleanly when wicketKind === 'Caught'
+      let caughtFielderIdx = -1;
+      let catchTargetX = cx;
+      let catchTargetY = cy;
+      if (anim.active && anim.trigger && isCaughtWicket) {
+        const resAngle = -Math.PI / 2 + anim.trigger.resolution.hitAngleRad;
+        const hitDx = Math.cos(resAngle);
+        const hitDy = Math.sin(resAngle);
+        let bestDot = -Infinity;
+        FIELDER_ANGLES.forEach((ang, idx) => {
+          const fAng = ang - Math.PI / 2;
+          const dot = hitDx * Math.cos(fAng) + hitDy * Math.sin(fAng);
+          if (dot > bestDot) {
+            bestDot = dot;
+            caughtFielderIdx = idx;
+          }
+        });
+        const fAng = FIELDER_ANGLES[caughtFielderIdx] - Math.PI / 2;
+        const homeDistFrac = FIELDER_RADII[caughtFielderIdx];
+        const homeFx = cx + Math.cos(fAng) * rx * homeDistFrac;
+        const homeFy = cy + Math.sin(fAng) * ry * homeDistFrac;
+        const interceptDistFrac = Math.max(0.36, homeDistFrac * 0.84);
+        const lineX = batContactX + hitDx * rx * interceptDistFrac;
+        const lineY = batContactY + hitDy * ry * interceptDistFrac;
+        catchTargetX = homeFx * 0.34 + lineX * 0.66;
+        catchTargetY = homeFy * 0.34 + lineY * 0.66;
+      }
+
       if (anim.active && anim.trigger) {
         const { deliveryType, deliveryLength, resolution } = anim.trigger;
+        const weatherPhysics = getWeatherBallPhysics(weatherMode, rainDelayActive);
+
         if (tNorm < 0.2) {
           ballX = ballReleaseX;
           ballY = bowlerY - 4;
+          ballShadowX = ballX + 2;
+          ballShadowY = ballY + 5;
         } else if (tNorm < 0.45) {
           const f = (tNorm - 0.2) / 0.25;
           const dryTurnBoost = pitchMode === 'dry' ? 1.55 : pitchMode === 'hard' ? 0.78 : 1.0;
+          const spinDegVal = clampSpinDegree(anim.trigger.spinDegree ?? DEFAULT_SPIN_DEGREE);
+          const spinTurnScale = 0.42 + (spinDegVal / 12) * 1.18;
           const greenSeamBoost = pitchMode === 'green' ? 1.48 : 1.0;
-          const weatherSwingBoost =
-            weatherMode === 'overcast'
-              ? 1.38
-              : weatherMode === 'drizzle'
-              ? 1.32
-              : weatherMode === 'windy'
-              ? 1.22
-              : weatherMode === 'humid'
-              ? 1.15
-              : 1.0;
+          const weatherSwingScale = weatherPhysics.swingMultiplier;
           let lateralCurve = 0;
 
           if (deliveryType === 'swing') {
-            lateralCurve = Math.sin(f * Math.PI) * 18 * greenSeamBoost * weatherSwingBoost;
+            lateralCurve = Math.sin(f * Math.PI) * 19 * greenSeamBoost * weatherSwingScale;
           } else if (deliveryType === 'seam') {
-            lateralCurve = f > 0.52 ? -11 * greenSeamBoost * weatherSwingBoost : 0;
+            lateralCurve = f > 0.52 ? -12 * greenSeamBoost * weatherSwingScale : 0;
+          } else if (deliveryType === 'fast' || deliveryType === 'yorker' || deliveryType === 'bouncer') {
+            lateralCurve = Math.sin(f * Math.PI) * 8 * (weatherSwingScale - 1);
           } else if (deliveryType === 'spin' || deliveryType === 'off_spin') {
-            lateralCurve = f > 0.56 ? (f - 0.56) * 34 * dryTurnBoost : 0;
+            lateralCurve = f > 0.56 ? (f - 0.56) * 34 * dryTurnBoost * spinTurnScale : 0;
           } else if (deliveryType === 'leg_spin') {
-            lateralCurve = f > 0.56 ? -(f - 0.56) * 36 * dryTurnBoost : 0;
+            lateralCurve = f > 0.56 ? -(f - 0.56) * 36 * dryTurnBoost * spinTurnScale : 0;
           } else if (deliveryType === 'googly') {
             lateralCurve =
-              f > 0.6 ? (f - 0.6) * 44 * dryTurnBoost : -Math.sin(f * Math.PI) * 5;
+              f > 0.6 ? (f - 0.6) * 44 * dryTurnBoost * spinTurnScale : -Math.sin(f * Math.PI) * 5;
           } else if (deliveryType === 'doosra') {
             lateralCurve =
-              f > 0.6 ? -(f - 0.6) * 40 * dryTurnBoost : Math.sin(f * Math.PI) * 5;
+              f > 0.6 ? -(f - 0.6) * 40 * dryTurnBoost * spinTurnScale : Math.sin(f * Math.PI) * 5;
           } else if (deliveryType === 'arm_ball') {
-            lateralCurve = Math.sin(f * Math.PI) * 5;
+            lateralCurve = Math.sin(f * Math.PI) * (3 + spinDegVal * 0.45);
           } else if (deliveryType === 'carrom') {
             lateralCurve =
-              f > 0.58 ? -(f - 0.58) * 35 * dryTurnBoost : Math.sin(f * Math.PI) * 6;
+              f > 0.58 ? -(f - 0.58) * 35 * dryTurnBoost * spinTurnScale : Math.sin(f * Math.PI) * 6;
           }
 
           ballX = ballReleaseX + (batContactX - ballReleaseX) * f + lateralCurve;
@@ -715,27 +798,71 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
           const bouncePoint =
             deliveryLength === 'full' ? 0.78 : deliveryLength === 'short' ? 0.35 : 0.58;
           const arcScale = Math.abs(Math.sin(((f - bouncePoint) / (1 - bouncePoint)) * Math.PI));
-          const bounceBoost = pitchMode === 'hard' ? 1.4 : pitchMode === 'dry' ? 0.85 : 1.0;
+          const bounceBoost =
+            (pitchMode === 'hard' ? 1.4 : pitchMode === 'dry' ? 0.85 : 1.0) *
+            weatherPhysics.bounceMultiplier;
           ballRadius = 4.2 + arcScale * 1.4 * bounceBoost;
+          ballShadowX = ballX + 2;
+          ballShadowY = ballY + 4 + arcScale * 2 * weatherPhysics.bounceMultiplier;
         } else {
           const f = (tNorm - 0.45) / 0.55;
           const eased = 1 - Math.pow(1 - f, 2.2);
-          if (resolution.isWicket) {
+          if (isCaughtWicket) {
+            if (f < 0.65) {
+              const cf = f / 0.65;
+              const flightEase = 1 - Math.pow(1 - cf, 1.35);
+              const gx = batContactX + (catchTargetX - batContactX) * flightEase;
+              const gy = batContactY + (catchTargetY - batContactY) * flightEase;
+              const loftHeight = Math.sin(cf * Math.PI) * 34;
+              ballShadowX = gx + 2;
+              ballShadowY = gy + 4;
+              ballX = gx;
+              ballY = gy - loftHeight;
+              ballRadius = 4.2 + Math.sin(cf * Math.PI) * 3.8;
+            } else {
+              ballX = catchTargetX;
+              ballY = catchTargetY - 9;
+              ballShadowX = catchTargetX + 1;
+              ballShadowY = catchTargetY + 3;
+              ballRadius = 4.2;
+              if (catchSpawnedForId !== anim.trigger.id) {
+                catchSpawnedForId = anim.trigger.id;
+                spawnBurst(catchTargetX, catchTargetY - 8, '#38bdf8', 18);
+                spawnBurst(catchTargetX, catchTargetY - 8, '#facc15', 10);
+                anim.crowdExcitement = 1.0;
+                anim.trauma = Math.max(anim.trauma, 0.35);
+              }
+            }
+          } else if (resolution.isWicket) {
             ballX = batContactX - eased * 6;
             ballY = botCreaseY + eased * 18;
+            ballShadowX = ballX + 2;
+            ballShadowY = ballY + 5;
           } else {
             const canvasAngle = -Math.PI / 2 + resolution.hitAngleRad;
-            const maxDistX = rx * 0.95 * resolution.hitDistanceFactor;
-            const maxDistY = ry * 0.95 * resolution.hitDistanceFactor;
+            const wetSlowFactor =
+              resolution.isBoundarySix || resolution.isBoundaryFour
+                ? 1
+                : rainDelayActive
+                ? 0.78
+                : weatherMode === 'drizzle'
+                ? 0.86
+                : 1.0;
+            const maxDistX = rx * 0.95 * resolution.hitDistanceFactor * wetSlowFactor;
+            const maxDistY = ry * 0.95 * resolution.hitDistanceFactor * wetSlowFactor;
             ballX = batContactX + Math.cos(canvasAngle) * maxDistX * eased;
             ballY = batContactY + Math.sin(canvasAngle) * maxDistY * eased;
+            ballShadowX = ballX + 2;
+            ballShadowY = ballY + (resolution.isBoundarySix ? 6 + Math.sin(f * Math.PI) * 14 : 5);
             if (resolution.isBoundarySix) {
               ballRadius = 4.2 + Math.sin(f * Math.PI) * 4.2;
             }
           }
 
           if (tNorm < 0.5 && particlesRef.current.every((p) => !p.active)) {
-            const burstColor = resolution.isWicket
+            const burstColor = isCaughtWicket
+              ? '#fbbf24'
+              : resolution.isWicket
               ? '#ef4444'
               : resolution.isBoundarySix
               ? '#facc15'
@@ -746,7 +873,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
               batContactX,
               batContactY,
               burstColor,
-              resolution.isBoundarySix || resolution.isWicket ? 20 : 10
+              resolution.isBoundarySix || resolution.isWicket ? 18 : 10
             );
           }
         }
@@ -768,24 +895,87 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       }
 
       FIELDER_ANGLES.forEach((ang, idx) => {
-        let fx = cx + Math.cos(ang - Math.PI / 2) * rx * FIELDER_RADII[idx];
-        let fy = cy + Math.sin(ang - Math.PI / 2) * ry * FIELDER_RADII[idx];
-        if (idx === nearestIdx && anim.active && tNorm > 0.48) {
+        const homeFx = cx + Math.cos(ang - Math.PI / 2) * rx * FIELDER_RADII[idx];
+        const homeFy = cy + Math.sin(ang - Math.PI / 2) * ry * FIELDER_RADII[idx];
+        let fx = homeFx;
+        let fy = homeFy;
+        const isCatcher = isCaughtWicket && idx === caughtFielderIdx && anim.active && tNorm >= 0.45;
+        let isCatchComplete = false;
+
+        if (isCatcher) {
+          const f = (tNorm - 0.45) / 0.55;
+          const runProg = Math.min(1, f / 0.65);
+          const easedRun = 1 - Math.pow(1 - runProg, 1.5);
+          fx = homeFx + (catchTargetX - homeFx) * easedRun;
+          fy = homeFy + (catchTargetY - homeFy) * easedRun;
+          isCatchComplete = f >= 0.65;
+
+          if (!isCatchComplete) {
+            ctx.strokeStyle = 'rgba(250, 204, 21, 0.55)';
+            ctx.lineWidth = 1.6;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(homeFx, homeFy);
+            ctx.lineTo(fx, fy);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+        } else if (idx === nearestIdx && anim.active && tNorm > 0.48) {
           const chaseFrac = Math.min(0.65, (tNorm - 0.48) * 1.3);
-          fx = fx + (ballX - fx) * chaseFrac;
-          fy = fy + (ballY - fy) * chaseFrac;
+          fx = homeFx + (ballX - homeFx) * chaseFrac;
+          fy = homeFy + (ballY - homeFy) * chaseFrac;
         }
+
+        if (isCatchComplete) {
+          const pulse = 13 + Math.sin(totalTime * 16) * 2.5;
+          ctx.strokeStyle = '#facc15';
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.arc(fx, fy - 2, pulse, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.strokeStyle = bowlJersey;
+          ctx.lineWidth = 2.6;
+          ctx.beginPath();
+          ctx.moveTo(fx - 4, fy - 2);
+          ctx.lineTo(fx - 7, fy - 12);
+          ctx.moveTo(fx + 4, fy - 2);
+          ctx.lineTo(fx + 7, fy - 12);
+          ctx.stroke();
+        }
+
         ctx.fillStyle = bowlJersey;
         ctx.beginPath();
-        ctx.arc(fx, fy, 7, 0, Math.PI * 2);
+        ctx.arc(fx, fy, isCatcher ? 7.6 : 7, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = isTestKit ? bowlTeam.primaryColor : 'rgba(255,255,255,0.65)';
-        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = isCatchComplete
+          ? '#facc15'
+          : isTestKit
+          ? bowlTeam.primaryColor
+          : 'rgba(255,255,255,0.65)';
+        ctx.lineWidth = isCatchComplete ? 2 : 1.4;
         ctx.stroke();
         ctx.fillStyle = '#fed7aa';
         ctx.beginPath();
         ctx.arc(fx, fy - 7, 4.5, 0, Math.PI * 2);
         ctx.fill();
+
+        if (isCatchComplete) {
+          const badgeX = Math.max(40, Math.min(width - 40, fx));
+          const badgeY = Math.max(24, fy - 28);
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+          ctx.beginPath();
+          ctx.roundRect(badgeX - 30, badgeY - 10, 60, 18, 6);
+          ctx.fill();
+          ctx.strokeStyle = '#facc15';
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+          ctx.fillStyle = '#fde047';
+          ctx.font = '800 10px system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('CAUGHT!', badgeX, badgeY - 0.5);
+        }
       });
 
       // Striker Batsman (Right-Handed vs Left-Handed Stance)
@@ -827,7 +1017,7 @@ export const StadiumCanvas: React.FC<StadiumCanvasProps> = ({
       if (ballVisible) {
         ctx.fillStyle = 'rgba(0,0,0,0.35)';
         ctx.beginPath();
-        ctx.ellipse(ballX + 2, ballY + 5, ballRadius * 0.8, ballRadius * 0.4, 0, 0, Math.PI * 2);
+        ctx.ellipse(ballShadowX, ballShadowY, ballRadius * 0.8, ballRadius * 0.4, 0, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.fillStyle = isTestKit ? '#dc2626' : '#f8fafc';

@@ -5,6 +5,8 @@ import {
   calculateDlsTarget,
   computeRainReduction,
   computeWeatherModifiers,
+  getWeatherBallPhysics,
+  getWeatherPitchPalette,
   maybeShiftWeather,
   shouldTriggerRainInterruption,
 } from './dls';
@@ -210,4 +212,42 @@ test('End-to-end 5-over match with 100% rain triggers DLS popup and reduces over
   }
 
   assert.equal(dlsTriggered, true);
+});
+
+test('getWeatherPitchPalette dynamically updates pitch/outfield colors, moisture sheen, and puddles by weather', () => {
+  const clearHard = getWeatherPitchPalette('hard', 'clear', false);
+  const overcastHard = getWeatherPitchPalette('hard', 'overcast', false);
+  const drizzleHard = getWeatherPitchPalette('hard', 'drizzle', false);
+  const rainDelayHard = getWeatherPitchPalette('hard', 'drizzle', true);
+
+  assert.equal(clearHard.moistureSheenColor, null);
+  assert.equal(clearHard.puddleOpacity, 0);
+  assert.notEqual(overcastHard.baseColor, clearHard.baseColor);
+  assert.ok(overcastHard.moistureSheenColor !== null);
+  assert.notEqual(drizzleHard.baseColor, overcastHard.baseColor);
+  assert.ok(drizzleHard.puddleOpacity > 0);
+  assert.ok(rainDelayHard.puddleOpacity > drizzleHard.puddleOpacity);
+  assert.notEqual(drizzleHard.outfieldEvenColor, clearHard.outfieldEvenColor);
+
+  const clearGreen = getWeatherPitchPalette('green', 'clear', false);
+  const drizzleGreen = getWeatherPitchPalette('green', 'drizzle', false);
+  assert.notEqual(clearGreen.baseColor, drizzleGreen.baseColor);
+
+  const clearDry = getWeatherPitchPalette('dry', 'clear', false);
+  const rainDry = getWeatherPitchPalette('dry', 'drizzle', true);
+  assert.notEqual(clearDry.baseColor, rainDry.baseColor);
+});
+
+test('getWeatherBallPhysics amplifies swing in overcast and lowers bounce + increases drag in rain', () => {
+  const clear = getWeatherBallPhysics('clear', false);
+  const overcast = getWeatherBallPhysics('overcast', false);
+  const drizzle = getWeatherBallPhysics('drizzle', false);
+  const rainDelay = getWeatherBallPhysics('drizzle', true);
+
+  assert.equal(clear.swingMultiplier, 1);
+  assert.equal(clear.bounceMultiplier, 1);
+  assert.ok(overcast.swingMultiplier > clear.swingMultiplier);
+  assert.ok(drizzle.bounceMultiplier < clear.bounceMultiplier);
+  assert.ok(rainDelay.bounceMultiplier < drizzle.bounceMultiplier);
+  assert.ok(rainDelay.flightDragScale > clear.flightDragScale);
 });

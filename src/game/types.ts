@@ -54,7 +54,7 @@ export type DeliveryType =
 
 export type DeliveryLength = 'full' | 'good' | 'short';
 
-export type WicketKind = 'Bowled' | 'Caught' | 'LBW' | 'Stumped' | 'Hit Wicket';
+export type WicketKind = 'Bowled' | 'Caught' | 'LBW' | 'Stumped';
 
 export type BattingHand = 'right' | 'left';
 export type BowlingStyle = 'pace' | 'spin';
@@ -197,6 +197,91 @@ export interface DlsRainPopupState {
   details: string;
 }
 
+export type DrsAppealType = 'LBW' | 'Stumped';
+export type DrsOnFieldDecision = 'OUT' | 'NOT_OUT';
+export type DrsThirdUmpireOutcome = 'OUT' | 'NOT_OUT' | 'UMPIRES_CALL';
+export type DrsRequestingSide = 'batting' | 'bowling';
+
+export interface DrsAppealTrigger {
+  appealType: DrsAppealType;
+  onFieldDecision: DrsOnFieldDecision;
+}
+
+export interface DrsBallTrackingData {
+  pitching: 'In Line' | 'Outside Off' | 'Outside Leg';
+  impact: 'In Line' | 'Outside Off' | "Umpire's Call";
+  wickets: 'Hitting' | 'Missing' | "Umpire's Call";
+  ultraEdge: 'Flat Line (No Bat)' | 'Spike Near Bat';
+  pitchXNorm: number; // -1 (leg) .. 0 (middle) .. +1 (off)
+  impactXNorm: number;
+  wicketXNorm: number;
+  wicketHeightNorm: number; // 0 (base) .. 1 (bails) .. >1 (over stumps)
+}
+
+export interface DrsStumpingData {
+  backFootPosition:
+    | 'Behind Crease (Grounded)'
+    | 'On Line (Nothing Behind)'
+    | 'In Air (Out of Crease)';
+  bailsLit: boolean;
+  ultraEdge: 'No Bat Involved' | 'Spike on Glove/Bat';
+  footOffsetMm: number; // positive = behind crease (safe), <= 0 = on/in front of line (out)
+}
+
+export type DrsReferralKind = 'drs' | 'umpire_stumping';
+
+export interface BowlerDrsChallenge {
+  id: number;
+  resolution: DeliveryResolution;
+  strikerIndex: number;
+  strikerName: string;
+  bowlerName: string;
+  overCompleted: boolean;
+  isSpin: boolean;
+  timeLimitSec: number;
+}
+
+export interface DrsPromptState {
+  id: number;
+  resolution: DeliveryResolution;
+  appealType: DrsAppealType;
+  onFieldDecision: DrsOnFieldDecision;
+  requestingSide: DrsRequestingSide;
+  requestingTeamId: string;
+  requestingPlayerName: string;
+  reviewsRemaining: number;
+  maxReviews: number;
+  timeLimitSec: number;
+  triggeredByUser: boolean;
+  referralKind?: DrsReferralKind;
+  isPostBallChallenge?: boolean;
+  challengeTargetBatterIndex?: number;
+  challengeBowlerName?: string;
+  challengeOverCompleted?: boolean;
+  phase: 'signal' | 'third_umpire' | 'verdict';
+  tracking?: DrsBallTrackingData;
+  stumpingCheck?: DrsStumpingData;
+  thirdUmpireOutcome?: DrsThirdUmpireOutcome;
+  finalDecisionIsOut?: boolean;
+  reviewRetained?: boolean;
+  verdictSummary?: string;
+}
+
+export interface PitchBallRecord {
+  id: number;
+  overBall: string;
+  length: DeliveryLength;
+  deliveryType: DeliveryType;
+  pitchDistanceM: number; // 0m (batter stumps) to 20.12m (bowler stumps)
+  lineOffsetCm: number; // -65cm (leg/left) .. 0 (middle) .. +65cm (off/right)
+  runs: number;
+  isWicket: boolean;
+  ballSymbol: string;
+  bowlerName: string;
+  paceSpeedKph?: number;
+  spinDegree?: number;
+}
+
 export interface InningsState {
   battingTeamId: string;
   bowlingTeamId: string;
@@ -204,10 +289,13 @@ export interface InningsState {
   wickets: number;
   ballsBowled: number;
   declared?: boolean;
+  battingReviewsRemaining: number;
+  bowlingReviewsRemaining: number;
   currentOverBalls: string[];
   currentOverRuns: number;
   currentOverWickets: number;
   overHistory: OverProgressPoint[];
+  recentPitchBalls?: PitchBallRecord[];
   strikerIndex: number;
   nonStrikerIndex: number;
   nextBatterIndex: number;
@@ -235,6 +323,11 @@ export interface DeliveryResolution {
   shotUsed: ShotType;
   deliveryUsed: DeliveryType;
   lengthUsed: DeliveryLength;
+  paceSpeedKph?: number;
+  spinDegree?: number;
+  pitchDistanceM?: number;
+  lineOffsetCm?: number;
+  drsAppeal?: DrsAppealTrigger;
 }
 
 export interface CommentaryEntry {
@@ -275,6 +368,8 @@ export interface MatchState {
   pendingBatterPopup?: NextBatterPrompt | null;
   pendingMilestonePopup?: MilestoneCelebration | null;
   pendingDlsPopup?: DlsRainPopupState | null;
+  pendingDrsPopup?: DrsPromptState | null;
+  pendingBowlerChallenge?: BowlerDrsChallenge | null;
   tossCaller: 'home' | 'away';
   tossWinner: 'home' | 'away' | null;
   tossCoinResult: 'heads' | 'tails' | null;
@@ -294,6 +389,8 @@ export interface MatchState {
   pvpTurnPhase: 'bowl_select' | 'bat_select';
   pendingDeliveryType: DeliveryType;
   pendingDeliveryLength: DeliveryLength;
+  pendingPaceSpeedKph?: number;
+  pendingSpinDegree?: number;
   activeTournamentMatchId?: string;
 }
 

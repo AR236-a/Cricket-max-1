@@ -7,22 +7,35 @@ import { TournamentHub } from './components/TournamentHub';
 import {
   advanceTestDayPopupToNewDay,
   applyDeliveryToMatch,
+  beginDrsOrApplyDelivery,
   chooseAiDelivery,
   chooseAiShot,
+  clampPaceSpeedKph,
+  clampSpinDegree,
+  clearBowlerChallenge,
+  completeDrsThirdUmpire,
   createInitialMatchState,
   declareTestInnings,
+  declineOrExpireDrsReview,
+  DEFAULT_PACE_SPEED_KPH,
+  DEFAULT_SPIN_DEGREE,
   dismissDlsPopup,
   dismissMilestonePopup,
   dismissOverPopup,
   getActiveInnings,
+  getDeliveryAnimDurationSec,
   isPlayerBattingNow,
   isSpinDelivery,
+  requestDrsReview,
+  requestPostBallBowlerChallenge,
   resolveDelivery,
+  revealDrsVerdict,
   selectNextBatter,
   selectNextBowler,
   startNextInnings,
   startTestNewDay,
 } from './game/cricketEngine';
+import { DRS_TIME_LIMIT_SEC } from './game/drs';
 import {
   clearSavedMatchSession,
   loadSavedMatchSession,
@@ -202,6 +215,16 @@ export default function App() {
   const [selectedDeliveryLength, setSelectedDeliveryLength] = useState<DeliveryLength>(() =>
     shouldAutoResume && initialSavedSession ? initialSavedSession.selectedDeliveryLength : 'good'
   );
+  const [selectedPaceSpeedKph, setSelectedPaceSpeedKph] = useState<number>(() =>
+    shouldAutoResume && initialSavedSession
+      ? clampPaceSpeedKph(initialSavedSession.selectedPaceSpeedKph ?? DEFAULT_PACE_SPEED_KPH)
+      : DEFAULT_PACE_SPEED_KPH
+  );
+  const [selectedSpinDegree, setSelectedSpinDegree] = useState<number>(() =>
+    shouldAutoResume && initialSavedSession
+      ? clampSpinDegree(initialSavedSession.selectedSpinDegree ?? DEFAULT_SPIN_DEGREE)
+      : DEFAULT_SPIN_DEGREE
+  );
   const [isAnimatingBall, setIsAnimatingBall] = useState(false);
   const [aiThinking, setAiThinking] = useState(false);
   const [animTrigger, setAnimTrigger] = useState<BallAnimTrigger | null>(null);
@@ -212,6 +235,10 @@ export default function App() {
   const [pendingScreenAfterMilestone, setPendingScreenAfterMilestone] = useState<
     'inningsBreak' | 'result' | null
   >(null);
+  const [drsTimeLeftSec, setDrsTimeLeftSec] = useState<number>(DRS_TIME_LIMIT_SEC);
+  const [bowlerChallengeTimeLeftSec, setBowlerChallengeTimeLeftSec] = useState<number>(
+    DRS_TIME_LIMIT_SEC
+  );
   const [muted, setMuted] = useState(false);
 
   const pendingResolutionRef = useRef<DeliveryResolution | null>(null);
@@ -277,6 +304,8 @@ export default function App() {
         savedAt: Date.now(),
         selectedDeliveryType,
         selectedDeliveryLength,
+        selectedPaceSpeedKph,
+        selectedSpinDegree,
         match: {
           ...match,
           isPaused: false,
@@ -288,7 +317,15 @@ export default function App() {
       clearSavedMatchSession();
       setSavedSession(null);
     }
-  }, [autostart, screen, match, selectedDeliveryType, selectedDeliveryLength]);
+  }, [
+    autostart,
+    screen,
+    match,
+    selectedDeliveryType,
+    selectedDeliveryLength,
+    selectedPaceSpeedKph,
+    selectedSpinDegree,
+  ]);
 
   const handleNavigate = useCallback((next: ScreenId) => {
     soundFx.playClick();
@@ -444,14 +481,28 @@ export default function App() {
   );
 
   const triggerDeliveryAnimation = useCallback(
-    (deliveryType: DeliveryType, deliveryLength: DeliveryLength, resolution: DeliveryResolution) => {
+    (
+      deliveryType: DeliveryType,
+      deliveryLength: DeliveryLength,
+      resolution: DeliveryResolution,
+      paceSpeedKph?: number,
+      spinDegree?: number
+    ) => {
       pendingResolutionRef.current = resolution;
       setIsAnimatingBall(true);
       animCounterRef.current += 1;
       const id = animCounterRef.current;
-      setAnimTrigger({ id, deliveryType, deliveryLength, resolution });
+      setAnimTrigger({ id, deliveryType, deliveryLength, paceSpeedKph, spinDegree, resolution });
 
-      // Bat contact sound around t=0.7s (45% of 1.55s)
+      const durationSec = getDeliveryAnimDurationSec(
+        deliveryType,
+        paceSpeedKph,
+        match?.weatherCondition ?? 'clear',
+        Boolean(match?.pendingDlsPopup)
+      );
+      const contactDelayMs = Math.round(durationSec * 450);
+
+      // Bat contact sound around 45% of ball flight
       const contactTimer = window.setTimeout(() => {
         if (resolution.isWicket) {
           soundFx.playWicket();
@@ -465,26 +516,23 @@ export default function App() {
           soundFx.playBatHit('soft');
         }
         setLastOutcomeBanner({ id, resolution });
-      }, 690);
+      }, contactDelayMs);
 
       const bannerClear = window.setTimeout(() => {
         setLastOutcomeBanner((cur) => (cur?.id === id ? null : cur));
-      }, 2250);
+      }, contactDelayMs + 1550);
 
       timersRef.current.push(contactTimer, bannerClear);
     },
-    []
+    [match?.weatherCondition, match?.pendingDlsPopup]
   );
 
-  const handleAnimationComplete = useCallback(() => {
-    const res = pendingResolutionRef.current;
-    pendingResolutionRef.current = null;
-    setIsAnimatingBall(false);
-    if (!res) return;
-
-    setMatch((prev) => {
-      if (!prev) return prev;
-      const applied = applyDeliveryToMatch(prev, res);
+  const handlePostDeliveryTransitions = useCallback(
+    (applied: {
+      nextState: MatchState;
+      enteredInningsBreak: boolean;
+      matchFinished: boolean;
+    }) => {
       const hasEndingPopup =
         Boolean(applied.nextState.pendingMilestonePopup) ||
         Boolean(applied.nextState.pendingDlsPopup);
@@ -501,9 +549,141 @@ export default function App() {
         const t = window.setTimeout(() => setScreen('result'), 550);
         timersRef.current.push(t);
       }
+    },
+    []
+  );
+
+  const handleAnimationComplete = useCallback(() => {
+    const res = pendingResolutionRef.current;
+    pendingResolutionRef.current = null;
+    setIsAnimatingBall(false);
+    if (!res) return;
+
+    setMatch((prev) => {
+      if (!prev) return prev;
+      const outcome = beginDrsOrApplyDelivery(prev, res);
+      if (outcome.drsOpened && outcome.nextState.pendingDrsPopup) {
+        if (outcome.nextState.pendingDrsPopup.phase === 'signal') {
+          setDrsTimeLeftSec(DRS_TIME_LIMIT_SEC);
+        } else {
+          soundFx.playDrsSignal();
+        }
+      } else {
+        handlePostDeliveryTransitions(outcome);
+      }
+      return outcome.nextState;
+    });
+  }, [handlePostDeliveryTransitions]);
+
+  const handleSignalDrsReview = useCallback(() => {
+    soundFx.playDrsSignal();
+    setMatch((prev) => (prev ? requestDrsReview(prev) : prev));
+  }, []);
+
+  const handleDeclineDrsReview = useCallback(() => {
+    soundFx.playClick();
+    setMatch((prev) => {
+      if (!prev || !prev.pendingDrsPopup) return prev;
+      const applied = declineOrExpireDrsReview(prev);
+      handlePostDeliveryTransitions(applied);
       return applied.nextState;
     });
+  }, [handlePostDeliveryTransitions]);
+
+  const handleRevealDrsVerdict = useCallback(() => {
+    setMatch((prev) => {
+      if (!prev || !prev.pendingDrsPopup || prev.pendingDrsPopup.phase !== 'third_umpire') {
+        return prev;
+      }
+      const next = revealDrsVerdict(prev);
+      const isOut = Boolean(next.pendingDrsPopup?.finalDecisionIsOut);
+      soundFx.playDrsVerdict(isOut);
+      return next;
+    });
   }, []);
+
+  const handleApplyDrsVerdict = useCallback(() => {
+    soundFx.playClick();
+    setMatch((prev) => {
+      if (!prev || !prev.pendingDrsPopup) return prev;
+      const applied = completeDrsThirdUmpire(prev);
+      handlePostDeliveryTransitions(applied);
+      return applied.nextState;
+    });
+  }, [handlePostDeliveryTransitions]);
+
+  // DRS 15-second signal countdown timer
+  const drsPopupId = match?.pendingDrsPopup?.id;
+  const drsPopupPhase = match?.pendingDrsPopup?.phase;
+  useEffect(() => {
+    if (screen !== 'playing' || !match || match.isPaused || drsPopupPhase !== 'signal') {
+      return;
+    }
+    setDrsTimeLeftSec(DRS_TIME_LIMIT_SEC);
+    const intervalId = window.setInterval(() => {
+      setDrsTimeLeftSec((sec) => {
+        if (sec <= 1) {
+          window.clearInterval(intervalId);
+          setMatch((prev) => {
+            if (!prev || prev.pendingDrsPopup?.phase !== 'signal') return prev;
+            const applied = declineOrExpireDrsReview(prev);
+            handlePostDeliveryTransitions(applied);
+            return applied.nextState;
+          });
+          return 0;
+        }
+        return sec - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [screen, drsPopupId, drsPopupPhase, match?.isPaused, handlePostDeliveryTransitions]);
+
+  // Third Umpire automated camera progression -> reveals verdict cleanly after ~1.35s
+  useEffect(() => {
+    if (screen !== 'playing' || !match || match.isPaused || drsPopupPhase !== 'third_umpire') {
+      return;
+    }
+    const timerId = window.setTimeout(() => {
+      handleRevealDrsVerdict();
+    }, 1350);
+    return () => window.clearTimeout(timerId);
+  }, [screen, drsPopupId, drsPopupPhase, match?.isPaused, handleRevealDrsVerdict]);
+
+  const handleRequestPostBallDrs = useCallback((appealType: 'LBW' | 'Stumped') => {
+    soundFx.playDrsSignal();
+    setMatch((prev) => (prev ? requestPostBallBowlerChallenge(prev, appealType) : prev));
+  }, []);
+
+  const handleDismissBowlerChallenge = useCallback(() => {
+    soundFx.playClick();
+    setMatch((prev) => (prev ? clearBowlerChallenge(prev) : prev));
+  }, []);
+
+  // Post-ball non-blocking 15s bowler DRS/stumping challenge countdown
+  const bowlerChallengeId = match?.pendingBowlerChallenge?.id;
+  useEffect(() => {
+    if (
+      screen !== 'playing' ||
+      !match ||
+      match.isPaused ||
+      match.pendingDrsPopup ||
+      !bowlerChallengeId
+    ) {
+      return;
+    }
+    setBowlerChallengeTimeLeftSec(DRS_TIME_LIMIT_SEC);
+    const intervalId = window.setInterval(() => {
+      setBowlerChallengeTimeLeftSec((sec) => {
+        if (sec <= 1) {
+          window.clearInterval(intervalId);
+          setMatch((prev) => (prev ? clearBowlerChallenge(prev) : prev));
+          return 0;
+        }
+        return sec - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [screen, bowlerChallengeId, match?.isPaused, match?.pendingDrsPopup]);
 
   const handleSelectShot = useCallback(
     (shot: ShotType) => {
@@ -512,6 +692,7 @@ export default function App() {
         isAnimatingBall ||
         aiThinking ||
         match.isPaused ||
+        match.pendingDrsPopup ||
         match.pendingMilestonePopup ||
         match.pendingBatterPopup ||
         match.pendingDlsPopup ||
@@ -530,6 +711,8 @@ export default function App() {
 
       let deliveryType: DeliveryType = match.pendingDeliveryType;
       let deliveryLength: DeliveryLength = match.pendingDeliveryLength;
+      let paceSpeedKph: number | undefined = match.pendingPaceSpeedKph ?? selectedPaceSpeedKph;
+      let spinDegree: number | undefined = match.pendingSpinDegree ?? selectedSpinDegree;
 
       if (match.mode === 'ai') {
         const aiDel = chooseAiDelivery(
@@ -541,6 +724,8 @@ export default function App() {
         );
         deliveryType = aiDel.type;
         deliveryLength = aiDel.length;
+        paceSpeedKph = aiDel.paceSpeedKph;
+        spinDegree = aiDel.spinDegree;
       }
 
       const resolution = resolveDelivery({
@@ -555,11 +740,21 @@ export default function App() {
         pitchCondition: match.pitchCondition,
         weatherCondition: match.weatherCondition ?? 'clear',
         bowlingSide: match.bowlingSide ?? 'over',
+        paceSpeedKph,
+        spinDegree,
       });
 
-      triggerDeliveryAnimation(deliveryType, deliveryLength, resolution);
+      triggerDeliveryAnimation(deliveryType, deliveryLength, resolution, paceSpeedKph, spinDegree);
     },
-    [match, isAnimatingBall, aiThinking, screen, triggerDeliveryAnimation]
+    [
+      match,
+      isAnimatingBall,
+      aiThinking,
+      screen,
+      selectedPaceSpeedKph,
+      selectedSpinDegree,
+      triggerDeliveryAnimation,
+    ]
   );
 
   const handleBowl = useCallback(() => {
@@ -568,6 +763,7 @@ export default function App() {
       isAnimatingBall ||
       aiThinking ||
       match.isPaused ||
+      match.pendingDrsPopup ||
       match.pendingMilestonePopup ||
       match.pendingBatterPopup ||
       match.pendingDlsPopup ||
@@ -590,19 +786,29 @@ export default function App() {
         : isSpinDelivery(selectedDeliveryType)
         ? 'fast'
         : selectedDeliveryType;
+    const isSpin = isSpinDelivery(effectiveDeliveryType);
+    const bowledSpeed = !isSpin ? selectedPaceSpeedKph : undefined;
+    const bowledSpinDeg = isSpin ? selectedSpinDegree : undefined;
 
     if (match.mode === 'pvp') {
       setMatch((prev) =>
         prev
           ? {
               ...prev,
+              pendingBowlerChallenge: null,
               pendingDeliveryType: effectiveDeliveryType,
               pendingDeliveryLength: selectedDeliveryLength,
+              pendingPaceSpeedKph: bowledSpeed,
+              pendingSpinDegree: bowledSpinDeg,
               pvpTurnPhase: 'bat_select',
             }
           : prev
       );
       return;
+    }
+
+    if (match.pendingBowlerChallenge) {
+      setMatch((prev) => (prev ? clearBowlerChallenge(prev) : prev));
     }
 
     // PvAI: player bowls, AI thinks briefly and chooses shot
@@ -624,8 +830,16 @@ export default function App() {
         pitchCondition: match.pitchCondition,
         weatherCondition: match.weatherCondition ?? 'clear',
         bowlingSide: match.bowlingSide ?? 'over',
+        paceSpeedKph: bowledSpeed,
+        spinDegree: bowledSpinDeg,
       });
-      triggerDeliveryAnimation(effectiveDeliveryType, selectedDeliveryLength, resolution);
+      triggerDeliveryAnimation(
+        effectiveDeliveryType,
+        selectedDeliveryLength,
+        resolution,
+        bowledSpeed,
+        bowledSpinDeg
+      );
     }, 360);
     timersRef.current.push(t);
   }, [
@@ -635,6 +849,8 @@ export default function App() {
     screen,
     selectedDeliveryType,
     selectedDeliveryLength,
+    selectedPaceSpeedKph,
+    selectedSpinDegree,
     triggerDeliveryAnimation,
   ]);
 
@@ -739,6 +955,7 @@ export default function App() {
       isAnimatingBall ||
       aiThinking ||
       match.isPaused ||
+      match.pendingDrsPopup ||
       match.pendingMilestonePopup ||
       match.pendingBatterPopup ||
       match.pendingDlsPopup ||
@@ -1019,6 +1236,28 @@ export default function App() {
       }
 
       if (screen === 'playing' && match) {
+        if (match.pendingDrsPopup) {
+          if (match.pendingDrsPopup.phase === 'signal') {
+            if (e.key.toLowerCase() === 'r') {
+              e.preventDefault();
+              handleSignalDrsReview();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              handleDeclineDrsReview();
+            }
+          } else if (match.pendingDrsPopup.phase === 'third_umpire') {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleRevealDrsVerdict();
+            }
+          } else if (match.pendingDrsPopup.phase === 'verdict') {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleApplyDrsVerdict();
+            }
+          }
+          return;
+        }
         if (match.pendingMilestonePopup) {
           if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
             e.preventDefault();
@@ -1074,6 +1313,10 @@ export default function App() {
     handleNavigate,
     handleToggleMute,
     handleTogglePause,
+    handleSignalDrsReview,
+    handleDeclineDrsReview,
+    handleRevealDrsVerdict,
+    handleApplyDrsVerdict,
     handleDismissMilestonePopup,
     handleDismissDlsPopup,
     handleSelectShot,
@@ -1094,6 +1337,7 @@ export default function App() {
         isPlaying={screen === 'playing' || screen === 'inningsBreak' || screen === 'result'}
         isPaused={Boolean(
           match?.isPaused ||
+            match?.pendingDrsPopup ||
             match?.pendingMilestonePopup ||
             match?.pendingBatterPopup ||
             match?.pendingDlsPopup ||
@@ -1169,6 +1413,10 @@ export default function App() {
         muted={muted}
         selectedDeliveryType={selectedDeliveryType}
         selectedDeliveryLength={selectedDeliveryLength}
+        selectedPaceSpeedKph={selectedPaceSpeedKph}
+        selectedSpinDegree={selectedSpinDegree}
+        drsTimeLeftSec={drsTimeLeftSec}
+        bowlerChallengeTimeLeftSec={bowlerChallengeTimeLeftSec}
         lastOutcomeBanner={lastOutcomeBanner}
         onSelectShot={handleSelectShot}
         onSelectDeliveryType={(t) => {
@@ -1179,6 +1427,12 @@ export default function App() {
           soundFx.playClick();
           setSelectedDeliveryLength(l);
         }}
+        onSelectPaceSpeedKph={(kph) => {
+          setSelectedPaceSpeedKph(clampPaceSpeedKph(kph));
+        }}
+        onSelectSpinDegree={(deg) => {
+          setSelectedSpinDegree(clampSpinDegree(deg));
+        }}
         onSelectBowlingSide={handleSelectBowlingSide}
         onBowl={handleBowl}
         onDeclareInnings={handleDeclareInnings}
@@ -1187,6 +1441,12 @@ export default function App() {
         onDismissOverPopup={handleDismissOverPopup}
         onDismissMilestonePopup={handleDismissMilestonePopup}
         onDismissDlsPopup={handleDismissDlsPopup}
+        onSignalDrsReview={handleSignalDrsReview}
+        onDeclineDrsReview={handleDeclineDrsReview}
+        onRevealDrsVerdict={handleRevealDrsVerdict}
+        onApplyDrsVerdict={handleApplyDrsVerdict}
+        onRequestPostBallDrs={handleRequestPostBallDrs}
+        onDismissBowlerChallenge={handleDismissBowlerChallenge}
         onProceedToNewDay={handleProceedToNewDay}
         onContinueNewDay={handleContinueNewDay}
         onToggleMute={handleToggleMute}

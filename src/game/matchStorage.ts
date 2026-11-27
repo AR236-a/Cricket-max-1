@@ -1,6 +1,7 @@
 import { formatOvers } from './cricketEngine';
+import { getDrsAllowance } from './drs';
 import { getTeamById } from './teams';
-import { DeliveryLength, DeliveryType, MatchState } from './types';
+import { DeliveryLength, DeliveryType, InningsState, MatchState } from './types';
 
 export const ACTIVE_MATCH_STORAGE_KEY = 'cricket_max_active_match_v1';
 
@@ -11,6 +12,8 @@ export interface SavedMatchSession {
   savedAt: number;
   selectedDeliveryType: DeliveryType;
   selectedDeliveryLength: DeliveryLength;
+  selectedPaceSpeedKph?: number;
+  selectedSpinDegree?: number;
   match: MatchState;
 }
 
@@ -30,6 +33,27 @@ export function isValidMatchState(candidate: unknown): candidate is MatchState {
   );
 }
 
+function normalizeInningsReviews(
+  inn: InningsState | null | undefined,
+  defaultReviews: number
+): InningsState | null {
+  if (!inn) return null;
+  return {
+    ...inn,
+    battingReviewsRemaining:
+      typeof inn.battingReviewsRemaining === 'number'
+        ? inn.battingReviewsRemaining
+        : defaultReviews,
+    bowlingReviewsRemaining:
+      typeof inn.bowlingReviewsRemaining === 'number'
+        ? inn.bowlingReviewsRemaining
+        : defaultReviews,
+    recentPitchBalls: Array.isArray(inn.recentPitchBalls)
+      ? inn.recentPitchBalls.slice(-6)
+      : [],
+  };
+}
+
 export function serializeMatchSession(session: SavedMatchSession): string {
   return JSON.stringify(session);
 }
@@ -42,6 +66,11 @@ export function parseMatchSession(raw: string | null): SavedMatchSession | null 
     if (parsed.screen !== 'playing' && parsed.screen !== 'inningsBreak') return null;
     if (!isValidMatchState(parsed.match)) return null;
 
+    const defaultReviews = getDrsAllowance(
+      parsed.match.format,
+      parsed.match.originalTotalOvers ?? parsed.match.totalOvers
+    );
+
     return {
       version: 1,
       screen: parsed.screen,
@@ -49,8 +78,16 @@ export function parseMatchSession(raw: string | null): SavedMatchSession | null 
       savedAt: typeof parsed.savedAt === 'number' ? parsed.savedAt : Date.now(),
       selectedDeliveryType: parsed.selectedDeliveryType ?? 'fast',
       selectedDeliveryLength: parsed.selectedDeliveryLength ?? 'good',
+      selectedPaceSpeedKph:
+        typeof parsed.selectedPaceSpeedKph === 'number' ? parsed.selectedPaceSpeedKph : 140,
+      selectedSpinDegree:
+        typeof parsed.selectedSpinDegree === 'number' ? parsed.selectedSpinDegree : 6,
       match: {
         ...parsed.match,
+        innings1: normalizeInningsReviews(parsed.match.innings1, defaultReviews)!,
+        innings2: normalizeInningsReviews(parsed.match.innings2, defaultReviews),
+        innings3: normalizeInningsReviews(parsed.match.innings3, defaultReviews),
+        innings4: normalizeInningsReviews(parsed.match.innings4, defaultReviews),
         isPaused: false,
       },
     };

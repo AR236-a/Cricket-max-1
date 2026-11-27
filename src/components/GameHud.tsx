@@ -6,17 +6,26 @@ import {
   formatOvers,
   getActiveInnings,
   getMaxOversPerBowler,
+  getPaceSpeedLabel,
+  getSpinDegreeLabel,
   getTestLeadText,
   isPlayerBattingNow,
   isSpinDelivery,
   LENGTH_META,
   PACE_DELIVERY_TYPES,
+  PACE_SPEED_MAX,
+  PACE_SPEED_MIN,
+  PACE_SPEED_PRESETS,
   PITCH_META,
   SHOT_META,
+  SPIN_DEGREE_MAX,
+  SPIN_DEGREE_MIN,
+  SPIN_DEGREE_PRESETS,
   SPIN_DELIVERY_TYPES,
   WEATHER_META,
 } from '../game/cricketEngine';
 import { computePlayerOfTheMatch } from '../game/awards';
+import { getDrsAllowance } from '../game/drs';
 import { getBattingHand, getBowlingStyle, getTeamById } from '../game/teams';
 import {
   BowlingSide,
@@ -29,6 +38,8 @@ import {
   ShotType,
   WeatherCondition,
 } from '../game/types';
+import { DrsThirdUmpireModal } from './DrsThirdUmpireModal';
+import { PitchMapChart } from './PitchMapChart';
 import { RunRateChart } from './RunRateChart';
 import { TeamBadge } from './TeamBadge';
 import {
@@ -61,10 +72,16 @@ interface GameHudProps {
   muted: boolean;
   selectedDeliveryType: DeliveryType;
   selectedDeliveryLength: DeliveryLength;
+  selectedPaceSpeedKph: number;
+  selectedSpinDegree: number;
+  drsTimeLeftSec: number;
+  bowlerChallengeTimeLeftSec: number;
   lastOutcomeBanner: { id: number; resolution: DeliveryResolution } | null;
   onSelectShot: (shot: ShotType) => void;
   onSelectDeliveryType: (type: DeliveryType) => void;
   onSelectDeliveryLength: (len: DeliveryLength) => void;
+  onSelectPaceSpeedKph: (kph: number) => void;
+  onSelectSpinDegree: (deg: number) => void;
   onSelectBowlingSide: (side: BowlingSide) => void;
   onBowl: () => void;
   onDeclareInnings: () => void;
@@ -73,6 +90,12 @@ interface GameHudProps {
   onDismissOverPopup: () => void;
   onDismissMilestonePopup: () => void;
   onDismissDlsPopup: () => void;
+  onSignalDrsReview: () => void;
+  onDeclineDrsReview: () => void;
+  onRevealDrsVerdict: () => void;
+  onApplyDrsVerdict: () => void;
+  onRequestPostBallDrs: (appealType: 'LBW' | 'Stumped') => void;
+  onDismissBowlerChallenge: () => void;
   onProceedToNewDay: () => void;
   onContinueNewDay: () => void;
   onToggleMute: () => void;
@@ -112,10 +135,16 @@ export const GameHud: React.FC<GameHudProps> = ({
   muted,
   selectedDeliveryType,
   selectedDeliveryLength,
+  selectedPaceSpeedKph,
+  selectedSpinDegree,
+  drsTimeLeftSec,
+  bowlerChallengeTimeLeftSec,
   lastOutcomeBanner,
   onSelectShot,
   onSelectDeliveryType,
   onSelectDeliveryLength,
+  onSelectPaceSpeedKph,
+  onSelectSpinDegree,
   onSelectBowlingSide,
   onBowl,
   onDeclareInnings,
@@ -124,6 +153,12 @@ export const GameHud: React.FC<GameHudProps> = ({
   onDismissOverPopup,
   onDismissMilestonePopup,
   onDismissDlsPopup,
+  onSignalDrsReview,
+  onDeclineDrsReview,
+  onRevealDrsVerdict,
+  onApplyDrsVerdict,
+  onRequestPostBallDrs,
+  onDismissBowlerChallenge,
   onProceedToNewDay,
   onContinueNewDay,
   onToggleMute,
@@ -170,6 +205,7 @@ export const GameHud: React.FC<GameHudProps> = ({
   const userControlsBowling = match.mode === 'pvp' || active.bowlingTeamId === match.homeTeamId;
   const currentBowlingSide: BowlingSide = match.bowlingSide ?? 'over';
   const hasBlockingPopup =
+    Boolean(match.pendingDrsPopup) ||
     Boolean(match.pendingMilestonePopup) ||
     Boolean(match.pendingBatterPopup) ||
     Boolean(match.pendingDlsPopup) ||
@@ -183,6 +219,12 @@ export const GameHud: React.FC<GameHudProps> = ({
     hasBlockingPopup ||
     showOpeningBowlerPicker;
   const isTest = match.format === 'test';
+  const drsMaxReviews = getDrsAllowance(
+    match.format,
+    match.originalTotalOvers ?? match.totalOvers
+  );
+  const batReviewsLeft = active.battingReviewsRemaining ?? drsMaxReviews;
+  const bowlReviewsLeft = active.bowlingReviewsRemaining ?? drsMaxReviews;
   const activeMaxOvers = isTest
     ? match.oversPerDay
     : match.inningsNumber === 1
@@ -241,6 +283,13 @@ export const GameHud: React.FC<GameHudProps> = ({
                 >
                   {isTest ? `(Inn ${match.inningsNumber})` : `(${active.wickets} wkts)`}
                 </span>
+                <span
+                  data-testid="hud-batting-drs"
+                  title={`${batTeam.code} DRS Reviews Remaining: ${batReviewsLeft}/${drsMaxReviews}`}
+                  className="hidden md:inline land:inline text-[11px] land:text-[10px] font-mono-num font-semibold text-cyan-300/90 tabular-nums whitespace-nowrap"
+                >
+                  DRS {batReviewsLeft}/{drsMaxReviews}
+                </span>
               </div>
             </div>
 
@@ -294,7 +343,16 @@ export const GameHud: React.FC<GameHudProps> = ({
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <TeamBadge team={bowlTeam} size="sm" />
                 <div className="text-right hidden sm:block land:block">
-                  <div className="text-xs land:text-[10px] font-semibold text-slate-300 leading-tight">{bowlTeam.code}</div>
+                  <div className="text-xs land:text-[10px] font-semibold text-slate-300 leading-tight">
+                    {bowlTeam.code}{' '}
+                    <span
+                      data-testid="hud-bowling-drs"
+                      title={`${bowlTeam.code} DRS Reviews Remaining: ${bowlReviewsLeft}/${drsMaxReviews}`}
+                      className="font-mono-num text-[10px] text-cyan-300/90 tabular-nums"
+                    >
+                      · DRS {bowlReviewsLeft}/{drsMaxReviews}
+                    </span>
+                  </div>
                   <div className="text-xs land:text-[10px] font-mono-num text-amber-300 whitespace-nowrap leading-tight">
                     {isTest
                       ? testLeadText
@@ -371,14 +429,13 @@ export const GameHud: React.FC<GameHudProps> = ({
                 <span className="font-bold text-cyan-300 whitespace-nowrap shrink-0">
                   {formatOvers(active.ballsBowled)}/{match.totalOvers} ov{match.dlsApplied ? ' DLS' : ''}
                 </span>
-                <span className={`inline-flex items-center gap-1 whitespace-nowrap shrink-0 ${weatherMeta.badgeColor.split(' ')[0]}`}>
-                  {renderWeatherIcon(weather, 'w-3 h-3')}
-                  <span>{weatherMeta.label}</span>
+                <span className="text-slate-300 font-mono-num whitespace-nowrap shrink-0 tabular-nums">
+                  DRS {batReviewsLeft}-{bowlReviewsLeft}
                 </span>
                 <span className="text-amber-300 font-semibold whitespace-nowrap shrink-0">
                   {isChase && runsNeeded !== null && ballsRemaining !== null
                     ? `${match.dlsApplied ? 'DLS ' : ''}Need ${runsNeeded} (${ballsRemaining}b)`
-                    : `${PITCH_META[match.pitchCondition ?? 'hard'].label}`}
+                    : `${weatherMeta.label}`}
                 </span>
               </>
             )}
@@ -469,6 +526,15 @@ export const GameHud: React.FC<GameHudProps> = ({
             inningsNumber={match.inningsNumber}
             totalOvers={match.totalOvers}
             target={match.target}
+          />
+        )}
+
+        {/* Dynamic D3 Pitch Mapping Heatmap & Length Trend (Last 6 Balls) */}
+        {screen === 'playing' && (
+          <PitchMapChart
+            balls={active.recentPitchBalls ?? []}
+            pitchCondition={match.pitchCondition ?? 'hard'}
+            strikerHand={strikerHand}
           />
         )}
 
@@ -594,8 +660,16 @@ export const GameHud: React.FC<GameHudProps> = ({
               </span>
               <span className="land:truncate">
                 {match.pvpTurnPhase === 'bowl_select'
-                  ? `P1 Bowling (${active.bowlerName}): Select delivery type & length, then click BOWL.`
-                  : `P2 Batting (${striker?.name}): ${DELIVERY_META[match.pendingDeliveryType].label} · ${LENGTH_META[match.pendingDeliveryLength].label} incoming — choose your shot!`}
+                  ? `P1 Bowling (${active.bowlerName}): Select delivery, ${
+                      activeBowlerStyle === 'spin' ? 'spin degree' : 'pace speed'
+                    } & length, then click BOWL.`
+                  : `P2 Batting (${striker?.name}): ${DELIVERY_META[match.pendingDeliveryType].label} · ${
+                      LENGTH_META[match.pendingDeliveryLength].label
+                    }${
+                      isSpinDelivery(match.pendingDeliveryType)
+                        ? ` · ${match.pendingSpinDegree ?? selectedSpinDegree}°`
+                        : ` · ${match.pendingPaceSpeedKph ?? selectedPaceSpeedKph} kph`
+                    } incoming — choose your shot!`}
               </span>
             </div>
           )}
@@ -653,6 +727,52 @@ export const GameHud: React.FC<GameHudProps> = ({
             </div>
           ) : (
             <div className="space-y-2 land:space-y-1">
+              {/* Post-Ball Bowler Appeal Bar (NOT OUT dot ball -> Take DRS for LBW or 3rd Umpire for Stumping) */}
+              {match.pendingBowlerChallenge && userControlsBowling && !controlsLocked && (
+                <div
+                  data-testid="bowler-challenge-bar"
+                  className="flex flex-wrap items-center justify-between gap-2 land:gap-1.5 px-2.5 land:px-2 py-1.5 land:py-1 rounded-lg bg-[#081533] border border-amber-400/65"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[10px] font-mono-num font-bold uppercase tracking-wider text-amber-300 shrink-0">
+                      NOT OUT · {bowlerChallengeTimeLeftSec}s
+                    </span>
+                    <span className="text-[11px] land:text-[10px] text-slate-200 truncate">
+                      Appeal vs {match.pendingBowlerChallenge.strikerName}?
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      data-testid="bowler-drs-lbw-btn"
+                      disabled={bowlReviewsLeft <= 0}
+                      onClick={() => onRequestPostBallDrs('LBW')}
+                      className="px-2.5 land:px-2 py-1 land:py-0.5 rounded bg-amber-400 hover:bg-amber-300 disabled:bg-slate-700 disabled:text-slate-400 text-slate-950 font-mono-num text-[11px] land:text-[10px] font-bold uppercase tracking-wider cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
+                    >
+                      TAKE DRS (LBW) · {bowlReviewsLeft}/{drsMaxReviews}
+                    </button>
+                    {match.pendingBowlerChallenge.isSpin && (
+                      <button
+                        type="button"
+                        data-testid="bowler-umpire-stumping-btn"
+                        onClick={() => onRequestPostBallDrs('Stumped')}
+                        className="px-2.5 land:px-2 py-1 land:py-0.5 rounded bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-mono-num text-[11px] land:text-[10px] font-bold uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                      >
+                        3RD UMP STUMPING
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      aria-label="Dismiss appeal prompt"
+                      onClick={onDismissBowlerChallenge}
+                      className="w-6 h-6 rounded bg-[#0c1c42] border border-slate-600/70 text-slate-300 hover:text-white flex items-center justify-center cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Auto-Detected Bowler Style Control Lock (Pacer vs Spinner) + Side Switch (Over/Around) */}
               <div className="flex flex-wrap items-center justify-between gap-2 land:gap-1.5">
                 <div className="flex flex-wrap items-center gap-2 land:gap-1.5">
@@ -784,6 +904,105 @@ export const GameHud: React.FC<GameHudProps> = ({
                   }
                 )}
               </div>
+
+              {/* Pacer Speed Selector OR Spinner Degree of Spin Controller */}
+              {effectiveBowlingTab === 'pace' ? (
+                <div
+                  data-testid="pace-speed-controller"
+                  className="flex flex-wrap sm:flex-nowrap land:flex-nowrap items-center justify-between gap-2 land:gap-1.5 px-2.5 land:px-2 py-1.5 land:py-1 rounded-lg bg-[#08132b] border border-amber-500/35"
+                >
+                  <div className="flex items-center gap-2 land:gap-1.5 shrink-0">
+                    <span className="text-[11px] land:text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                      Pace Speed
+                    </span>
+                    <span
+                      data-testid="pace-speed-value"
+                      className="font-mono-num text-xs land:text-[11px] font-bold px-2 py-0.5 land:py-0 rounded bg-amber-400/20 border border-amber-400/50 text-amber-200 tabular-nums"
+                    >
+                      {selectedPaceSpeedKph} kph · {getPaceSpeedLabel(selectedPaceSpeedKph)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 land:gap-1.5 flex-1 min-w-[160px] justify-end">
+                    <input
+                      type="range"
+                      min={PACE_SPEED_MIN}
+                      max={PACE_SPEED_MAX}
+                      step={1}
+                      value={selectedPaceSpeedKph}
+                      disabled={controlsLocked}
+                      aria-label="Pacer bowling speed in kph"
+                      data-testid="pace-speed-slider"
+                      onChange={(e) => onSelectPaceSpeedKph(Number(e.target.value))}
+                      className="w-full max-w-[190px] land:max-w-[140px] accent-amber-400 cursor-pointer disabled:opacity-45"
+                    />
+                    <div className="flex items-center gap-1 shrink-0">
+                      {PACE_SPEED_PRESETS.map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          disabled={controlsLocked}
+                          onClick={() => onSelectPaceSpeedKph(preset)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-mono-num font-bold border transition-colors cursor-pointer disabled:opacity-45 ${
+                            selectedPaceSpeedKph === preset
+                              ? 'bg-amber-400 text-slate-950 border-amber-300'
+                              : 'bg-[#0b1838] border-slate-600/70 text-slate-300 hover:border-amber-400/70'
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  data-testid="spin-degree-controller"
+                  className="flex flex-wrap sm:flex-nowrap land:flex-nowrap items-center justify-between gap-2 land:gap-1.5 px-2.5 land:px-2 py-1.5 land:py-1 rounded-lg bg-[#08132b] border border-purple-500/40"
+                >
+                  <div className="flex items-center gap-2 land:gap-1.5 shrink-0">
+                    <span className="text-[11px] land:text-[10px] font-bold uppercase tracking-wider text-purple-300">
+                      Spin Degree
+                    </span>
+                    <span
+                      data-testid="spin-degree-value"
+                      className="font-mono-num text-xs land:text-[11px] font-bold px-2 py-0.5 land:py-0 rounded bg-purple-500/20 border border-purple-400/50 text-purple-200 tabular-nums"
+                    >
+                      {selectedSpinDegree}° · {getSpinDegreeLabel(selectedSpinDegree)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 land:gap-1.5 flex-1 min-w-[160px] justify-end">
+                    <input
+                      type="range"
+                      min={SPIN_DEGREE_MIN}
+                      max={SPIN_DEGREE_MAX}
+                      step={1}
+                      value={selectedSpinDegree}
+                      disabled={controlsLocked}
+                      aria-label="Spinner turn degree"
+                      data-testid="spin-degree-slider"
+                      onChange={(e) => onSelectSpinDegree(Number(e.target.value))}
+                      className="w-full max-w-[190px] land:max-w-[140px] accent-purple-400 cursor-pointer disabled:opacity-45"
+                    />
+                    <div className="flex items-center gap-1 shrink-0">
+                      {SPIN_DEGREE_PRESETS.map((deg) => (
+                        <button
+                          key={deg}
+                          type="button"
+                          disabled={controlsLocked}
+                          onClick={() => onSelectSpinDegree(deg)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-mono-num font-bold border transition-colors cursor-pointer disabled:opacity-45 ${
+                            selectedSpinDegree === deg
+                              ? 'bg-purple-400 text-slate-950 border-purple-300'
+                              : 'bg-[#0b1838] border-slate-600/70 text-slate-300 hover:border-purple-400/70'
+                          }`}
+                        >
+                          {deg}°
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* In mobile landscape, group Lengths (left 3 cols) + BOWL (right 2 cols) side-by-side to keep field wide open */}
               <div className="space-y-2 land:space-y-0 land:grid land:grid-cols-5 land:gap-1.5">
@@ -942,8 +1161,22 @@ export const GameHud: React.FC<GameHudProps> = ({
         </div>
       )}
 
+      {/* DRS 15s SIGNAL & THIRD UMPIRE REVIEW MODAL */}
+      {match.pendingDrsPopup && screen === 'playing' && (
+        <DrsThirdUmpireModal
+          prompt={match.pendingDrsPopup}
+          format={match.format}
+          totalOvers={match.originalTotalOvers ?? match.totalOvers}
+          timeLeftSec={drsTimeLeftSec}
+          onSignalReview={onSignalDrsReview}
+          onDeclineReview={onDeclineDrsReview}
+          onRevealVerdict={onRevealDrsVerdict}
+          onApplyVerdict={onApplyDrsVerdict}
+        />
+      )}
+
       {/* MILESTONE CELEBRATION POPUP (50 / 100 / 150 / 200 / 5-FER) */}
-      {match.pendingMilestonePopup && screen === 'playing' && (
+      {match.pendingMilestonePopup && !match.pendingDrsPopup && screen === 'playing' && (
         <div
           role="dialog"
           aria-modal="true"
@@ -1445,6 +1678,41 @@ export const GameHud: React.FC<GameHudProps> = ({
                 </div>
               )}
             </div>
+
+            {match.pendingBowlerChallenge && userControlsBowling && (
+              <div
+                data-testid="over-bowler-challenge-bar"
+                className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 land:py-1.5 rounded-lg bg-[#071128] border border-amber-400/65 text-left"
+              >
+                <div className="text-[11px] text-slate-200">
+                  <span className="font-mono-num font-bold text-amber-300 mr-1.5">
+                    6TH BALL NOT OUT ({bowlerChallengeTimeLeftSec}s)
+                  </span>
+                  <span>vs {match.pendingBowlerChallenge.strikerName}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    data-testid="over-bowler-drs-lbw-btn"
+                    disabled={bowlReviewsLeft <= 0}
+                    onClick={() => onRequestPostBallDrs('LBW')}
+                    className="px-2.5 py-1 rounded bg-amber-400 hover:bg-amber-300 disabled:bg-slate-700 disabled:text-slate-400 text-slate-950 font-mono-num text-[11px] font-bold uppercase tracking-wider cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    TAKE DRS (LBW) · {bowlReviewsLeft}/{drsMaxReviews}
+                  </button>
+                  {match.pendingBowlerChallenge.isSpin && (
+                    <button
+                      type="button"
+                      data-testid="over-bowler-umpire-stumping-btn"
+                      onClick={() => onRequestPostBallDrs('Stumped')}
+                      className="px-2.5 py-1 rounded bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-mono-num text-[11px] font-bold uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                    >
+                      3RD UMP STUMPING
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             <button
               type="button"

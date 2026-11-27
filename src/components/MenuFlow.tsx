@@ -668,14 +668,34 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
           </h2>
 
           <div
-            className={`w-24 h-24 land:w-16 land:h-16 rounded-full bg-gradient-to-br from-yellow-300 via-amber-400 to-amber-600 border-4 border-yellow-200/80 shadow-[0_0_30px_rgba(250,204,21,0.35)] flex items-center justify-center mb-5 land:mb-3 ${
-              tossFlipping ? 'animate-coin-flip' : ''
+            data-testid="toss-coin"
+            className={`w-24 h-24 land:w-16 land:h-16 rounded-full bg-gradient-to-br from-yellow-300 via-amber-400 to-amber-600 border-4 flex flex-col items-center justify-center mb-5 land:mb-3 transition-all duration-500 ease-out ${
+              tossFlipping
+                ? 'animate-coin-flip border-yellow-100 shadow-[0_0_40px_rgba(250,204,21,0.65)]'
+                : tossCoinResult
+                ? 'animate-coin-land border-yellow-100 ring-4 ring-amber-400/25 shadow-[0_0_32px_rgba(250,204,21,0.45)]'
+                : 'border-yellow-200/80 shadow-[0_0_30px_rgba(250,204,21,0.35)]'
             }`}
           >
-            <Coins className="w-10 h-10 land:w-7 land:h-7 text-amber-950" aria-hidden="true" />
+            {tossCoinResult && !tossFlipping ? (
+              <span className="font-display text-lg land:text-sm font-bold tracking-wider text-amber-950 uppercase leading-none">
+                {tossCoinResult === 'heads' ? 'HEADS' : 'TAILS'}
+              </span>
+            ) : (
+              <Coins className="w-10 h-10 land:w-7 land:h-7 text-amber-950" aria-hidden="true" />
+            )}
           </div>
 
-          <p className="text-xs tracking-[0.25em] text-slate-300 uppercase mb-5">
+          <p
+            data-testid="toss-status-label"
+            className={`text-xs tracking-[0.25em] uppercase mb-5 land:mb-3 transition-all duration-300 ease-out ${
+              tossFlipping
+                ? 'text-amber-300 animate-pulse'
+                : tossCoinResult
+                ? 'text-emerald-300 font-semibold'
+                : 'text-slate-300'
+            }`}
+          >
             {tossFlipping
               ? 'FLIPPING COIN...'
               : tossCoinResult
@@ -703,8 +723,12 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
           )}
 
           {tossCoinResult && !tossFlipping && (
-            <div className="flex flex-col items-center gap-5">
-              <div className="flex items-center gap-2.5 text-xl sm:text-2xl font-display font-bold tracking-wide text-amber-400">
+            <div
+              key={tossCoinResult}
+              data-testid="toss-result-area"
+              className="animate-toss-result w-full rounded-xl bg-[#0b1530]/92 border border-amber-400/45 shadow-[0_10px_32px_rgba(2,6,23,0.55)] px-5 py-4 land:px-4 land:py-3 flex flex-col items-center gap-4 land:gap-2.5 transition-all duration-500 ease-out"
+            >
+              <div className="flex flex-wrap items-center justify-center gap-2.5 text-xl sm:text-2xl land:text-lg font-display font-bold tracking-wide text-amber-400">
                 <span>{tossCoinResult.toUpperCase()}!</span>
                 {tossWinner === 'home' && homeTeam && (
                   <>
@@ -721,31 +745,31 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
               </div>
 
               {mode === 'pvp' || tossWinner === 'home' ? (
-                <div className="flex items-center gap-4">
+                <div className="animate-toss-actions flex items-center gap-4">
                   <button
                     type="button"
                     onClick={() => onStartFromToss(tossWinner === 'home')}
-                    className="px-6 py-2.5 rounded-lg bg-[#0b1530]/95 border border-cyan-400/70 text-cyan-200 hover:bg-cyan-400 hover:text-slate-950 font-semibold tracking-wider uppercase text-xs transition-colors cursor-pointer whitespace-nowrap"
+                    className="px-6 py-2.5 land:py-2 rounded-lg bg-[#081024] border border-cyan-400/70 text-cyan-200 hover:bg-cyan-400 hover:text-slate-950 font-semibold tracking-wider uppercase text-xs transition-colors cursor-pointer whitespace-nowrap"
                   >
                     BAT FIRST
                   </button>
                   <button
                     type="button"
                     onClick={() => onStartFromToss(tossWinner !== 'home')}
-                    className="px-6 py-2.5 rounded-lg bg-[#0b1530]/95 border border-cyan-400/70 text-cyan-200 hover:bg-cyan-400 hover:text-slate-950 font-semibold tracking-wider uppercase text-xs transition-colors cursor-pointer whitespace-nowrap"
+                    className="px-6 py-2.5 land:py-2 rounded-lg bg-[#081024] border border-cyan-400/70 text-cyan-200 hover:bg-cyan-400 hover:text-slate-950 font-semibold tracking-wider uppercase text-xs transition-colors cursor-pointer whitespace-nowrap"
                   >
                     BOWL FIRST
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col items-center gap-3">
-                  <p className="text-sm text-cyan-200">
+                <div className="animate-toss-actions flex flex-col items-center gap-3 land:gap-2">
+                  <p className="text-sm land:text-xs text-cyan-200">
                     {awayTeam?.name} elected to {aiChoice === 'bat' ? 'bat' : 'bowl'} first.
                   </p>
                   <button
                     type="button"
                     onClick={() => onStartFromToss(aiChoice === 'bowl')}
-                    className="px-7 py-2.5 rounded-lg bg-amber-400 text-slate-950 hover:bg-amber-300 font-semibold tracking-wider uppercase text-xs transition-colors cursor-pointer whitespace-nowrap"
+                    className="px-7 py-2.5 land:py-2 rounded-lg bg-amber-400 text-slate-950 hover:bg-amber-300 font-semibold tracking-wider uppercase text-xs transition-colors cursor-pointer whitespace-nowrap"
                   >
                     START MATCH ▶
                   </button>
@@ -787,6 +811,53 @@ export const MenuFlow: React.FC<MenuFlowProps> = ({
                 <li>• Weather Shifts: Overcast boosts swing, Windy adds drift, Humid brings dew, Drizzle lowers visibility</li>
                 <li>• Rain & DLS: Select 100%, 75%, 50%, 25%, or 0% rain chance — rain reduces overs & recalculates target via DLS</li>
               </ul>
+            </section>
+
+            <section>
+              <h3 className="font-display text-lg tracking-wider text-amber-400 mb-2">
+                DRS &amp; THIRD UMPIRE (LBW &amp; STUMPING)
+              </h3>
+              <p className="text-xs text-slate-300 mb-2.5">
+                Eligible on LBW &amp; Stumping dismissals/appeals (excludes Timed out). Both teams (player and opponent) can take DRS on LBW calls within 15s (including post-ball bowler LBW challenges on NOT OUT calls). Stumping appeals go directly to the Third Umpire without using a DRS review; DRS reviews are kept if overturned or &quot;Umpire&apos;s Call&quot;.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-[11px] font-mono-num border border-cyan-500/30 rounded">
+                  <thead>
+                    <tr className="bg-[#070f24] text-cyan-300 border-b border-cyan-500/30">
+                      <th className="py-1.5 px-2">Rule</th>
+                      <th className="py-1.5 px-2">Test</th>
+                      <th className="py-1.5 px-2">ODI</th>
+                      <th className="py-1.5 px-2">T20I</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/80 text-slate-200">
+                    <tr>
+                      <td className="py-1 px-2 text-slate-300">Reviews / Innings</td>
+                      <td className="py-1 px-2 text-amber-300 font-bold">3</td>
+                      <td className="py-1 px-2 text-amber-300 font-bold">2</td>
+                      <td className="py-1 px-2 text-amber-300 font-bold">2</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 px-2 text-slate-300">Super Over</td>
+                      <td className="py-1 px-2 text-slate-400">N/A</td>
+                      <td className="py-1 px-2 text-cyan-200">1</td>
+                      <td className="py-1 px-2 text-cyan-200">1</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 px-2 text-slate-300">Signal Timer</td>
+                      <td className="py-1 px-2">15s</td>
+                      <td className="py-1 px-2">15s</td>
+                      <td className="py-1 px-2">15s</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 px-2 text-slate-300">Retention</td>
+                      <td className="py-1 px-2 col-span-3" colSpan={3}>
+                        Kept if Overturned or Umpire&apos;s Call
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </section>
 
             <section>
