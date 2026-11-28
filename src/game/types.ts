@@ -267,6 +267,16 @@ export interface DrsStumpingData {
 
 export type DrsReferralKind = 'drs' | 'umpire_stumping';
 
+export interface DrsProbabilityEstimate {
+  overturnPct: number;
+  umpiresCallPct: number;
+  retainReviewPct: number;
+  loseReviewPct: number;
+  confidenceTier: 'high' | 'medium' | 'low';
+  confidenceLabel: 'STRONG REVIEW' | 'CLOSE CALL' | 'RISKY — LIKELY WASTED';
+  hint: string;
+}
+
 export interface BowlerDrsChallenge {
   id: number;
   resolution: DeliveryResolution;
@@ -276,6 +286,8 @@ export interface BowlerDrsChallenge {
   overCompleted: boolean;
   isSpin: boolean;
   timeLimitSec: number;
+  lbwProbability?: DrsProbabilityEstimate;
+  stumpingOutPct?: number;
 }
 
 export interface DrsPromptState {
@@ -295,6 +307,7 @@ export interface DrsPromptState {
   challengeTargetBatterIndex?: number;
   challengeBowlerName?: string;
   challengeOverCompleted?: boolean;
+  probabilityEstimate?: DrsProbabilityEstimate;
   phase: 'signal' | 'third_umpire' | 'verdict';
   tracking?: DrsBallTrackingData;
   stumpingCheck?: DrsStumpingData;

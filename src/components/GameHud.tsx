@@ -742,50 +742,80 @@ export const GameHud: React.FC<GameHudProps> = ({
           ) : (
             <div className="space-y-2 land:space-y-1">
               {/* Post-Ball Bowler Appeal Bar (NOT OUT dot ball -> Take DRS for LBW or 3rd Umpire for Stumping) */}
-              {match.pendingBowlerChallenge && userControlsBowling && !controlsLocked && (
-                <div
-                  data-testid="bowler-challenge-bar"
-                  className="flex flex-wrap items-center justify-between gap-2 land:gap-1.5 px-2.5 land:px-2 py-1.5 land:py-1 rounded-lg bg-[#081533] border border-amber-400/65"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[10px] font-mono-num font-bold uppercase tracking-wider text-amber-300 shrink-0">
-                      NOT OUT · {bowlerChallengeTimeLeftSec}s
-                    </span>
-                    <span className="text-[11px] land:text-[10px] text-slate-200 truncate">
-                      Appeal vs {match.pendingBowlerChallenge.strikerName}?
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      data-testid="bowler-drs-lbw-btn"
-                      disabled={bowlReviewsLeft <= 0}
-                      onClick={() => onRequestPostBallDrs('LBW')}
-                      className="px-2.5 land:px-2 py-1 land:py-0.5 rounded bg-amber-400 hover:bg-amber-300 disabled:bg-slate-700 disabled:text-slate-400 text-slate-950 font-mono-num text-[11px] land:text-[10px] font-bold uppercase tracking-wider cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
-                    >
-                      TAKE DRS (LBW) · {bowlReviewsLeft}/{drsMaxReviews}
-                    </button>
-                    {match.pendingBowlerChallenge.isSpin && (
+              {match.pendingBowlerChallenge && userControlsBowling && !controlsLocked && (() => {
+                const challenge = match.pendingBowlerChallenge;
+                const lbwProb = challenge.lbwProbability;
+                const stumpPct = challenge.stumpingOutPct;
+                const probToneClass =
+                  lbwProb?.confidenceTier === 'high'
+                    ? 'bg-emerald-500/20 border-emerald-400/70 text-emerald-200'
+                    : lbwProb?.confidenceTier === 'medium'
+                    ? 'bg-amber-500/20 border-amber-400/70 text-amber-200'
+                    : 'bg-rose-500/20 border-rose-400/70 text-rose-200';
+                return (
+                  <div
+                    data-testid="bowler-challenge-bar"
+                    className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 land:gap-1.5 px-2.5 land:px-2 py-1.5 land:py-1 rounded-lg bg-[#081533] border border-amber-400/65"
+                  >
+                    <div className="flex items-start sm:items-center justify-between gap-1.5 w-full sm:w-auto min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
+                        <span className="text-[10px] font-mono-num font-bold uppercase tracking-wider text-amber-300 shrink-0">
+                          NOT OUT · {bowlerChallengeTimeLeftSec}s
+                        </span>
+                        <span className="text-[11px] land:text-[10px] text-slate-200 truncate">
+                          Appeal vs {challenge.strikerName}?
+                        </span>
+                        {lbwProb && (
+                          <span
+                            data-testid="bowler-drs-probability"
+                            title={lbwProb.hint}
+                            className={`px-1.5 py-0.5 rounded border font-mono-num text-[10px] font-bold tabular-nums whitespace-nowrap ${probToneClass}`}
+                          >
+                            LBW {lbwProb.overturnPct}% Out · {lbwProb.retainReviewPct}% Keep
+                          </span>
+                        )}
+                      </div>
                       <button
                         type="button"
-                        data-testid="bowler-umpire-stumping-btn"
-                        onClick={() => onRequestPostBallDrs('Stumped')}
-                        className="px-2.5 land:px-2 py-1 land:py-0.5 rounded bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-mono-num text-[11px] land:text-[10px] font-bold uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                        aria-label="Dismiss appeal prompt"
+                        onClick={onDismissBowlerChallenge}
+                        className="sm:hidden w-6 h-6 shrink-0 rounded bg-[#0c1c42] border border-slate-600/70 text-slate-300 hover:text-white flex items-center justify-center cursor-pointer"
                       >
-                        3RD UMP STUMPING
+                        <X className="w-3.5 h-3.5" />
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      aria-label="Dismiss appeal prompt"
-                      onClick={onDismissBowlerChallenge}
-                      className="w-6 h-6 rounded bg-[#0c1c42] border border-slate-600/70 text-slate-300 hover:text-white flex items-center justify-center cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        data-testid="bowler-drs-lbw-btn"
+                        disabled={bowlReviewsLeft <= 0}
+                        onClick={() => onRequestPostBallDrs('LBW')}
+                        className="px-2 sm:px-2.5 land:px-2 py-1 land:py-0.5 rounded bg-amber-400 hover:bg-amber-300 disabled:bg-slate-700 disabled:text-slate-400 text-slate-950 font-mono-num text-[10px] sm:text-[11px] land:text-[10px] font-bold uppercase tracking-wider cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
+                      >
+                        TAKE DRS (LBW) · {bowlReviewsLeft}/{drsMaxReviews}
+                      </button>
+                      {challenge.isSpin && (
+                        <button
+                          type="button"
+                          data-testid="bowler-umpire-stumping-btn"
+                          onClick={() => onRequestPostBallDrs('Stumped')}
+                          className="px-2 sm:px-2.5 land:px-2 py-1 land:py-0.5 rounded bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-mono-num text-[10px] sm:text-[11px] land:text-[10px] font-bold uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                        >
+                          3RD UMP STUMPING{typeof stumpPct === 'number' ? ` (${stumpPct}%)` : ''}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        aria-label="Dismiss appeal prompt"
+                        onClick={onDismissBowlerChallenge}
+                        className="hidden sm:flex w-6 h-6 rounded bg-[#0c1c42] border border-slate-600/70 text-slate-300 hover:text-white items-center justify-center cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Auto-Detected Bowler Style Control Lock (Pacer vs Spinner) + Side Switch (Over/Around) */}
               <div className="flex flex-wrap items-center justify-between gap-2 land:gap-1.5">
@@ -1693,40 +1723,60 @@ export const GameHud: React.FC<GameHudProps> = ({
               )}
             </div>
 
-            {match.pendingBowlerChallenge && userControlsBowling && (
-              <div
-                data-testid="over-bowler-challenge-bar"
-                className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 land:py-1.5 rounded-lg bg-[#071128] border border-amber-400/65 text-left"
-              >
-                <div className="text-[11px] text-slate-200">
-                  <span className="font-mono-num font-bold text-amber-300 mr-1.5">
-                    6TH BALL NOT OUT ({bowlerChallengeTimeLeftSec}s)
-                  </span>
-                  <span>vs {match.pendingBowlerChallenge.strikerName}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    data-testid="over-bowler-drs-lbw-btn"
-                    disabled={bowlReviewsLeft <= 0}
-                    onClick={() => onRequestPostBallDrs('LBW')}
-                    className="px-2.5 py-1 rounded bg-amber-400 hover:bg-amber-300 disabled:bg-slate-700 disabled:text-slate-400 text-slate-950 font-mono-num text-[11px] font-bold uppercase tracking-wider cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
-                  >
-                    TAKE DRS (LBW) · {bowlReviewsLeft}/{drsMaxReviews}
-                  </button>
-                  {match.pendingBowlerChallenge.isSpin && (
+            {match.pendingBowlerChallenge && userControlsBowling && (() => {
+              const challenge = match.pendingBowlerChallenge;
+              const lbwProb = challenge.lbwProbability;
+              const stumpPct = challenge.stumpingOutPct;
+              const probToneClass =
+                lbwProb?.confidenceTier === 'high'
+                  ? 'bg-emerald-500/20 border-emerald-400/70 text-emerald-200'
+                  : lbwProb?.confidenceTier === 'medium'
+                  ? 'bg-amber-500/20 border-amber-400/70 text-amber-200'
+                  : 'bg-rose-500/20 border-rose-400/70 text-rose-200';
+              return (
+                <div
+                  data-testid="over-bowler-challenge-bar"
+                  className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 land:py-1.5 rounded-lg bg-[#071128] border border-amber-400/65 text-left"
+                >
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-200">
+                    <span className="font-mono-num font-bold text-amber-300">
+                      6TH BALL NOT OUT ({bowlerChallengeTimeLeftSec}s)
+                    </span>
+                    <span>vs {challenge.strikerName}</span>
+                    {lbwProb && (
+                      <span
+                        data-testid="over-bowler-drs-probability"
+                        title={lbwProb.hint}
+                        className={`px-1.5 py-0.5 rounded border font-mono-num text-[10px] font-bold tabular-nums whitespace-nowrap ${probToneClass}`}
+                      >
+                        LBW {lbwProb.overturnPct}% Out · {lbwProb.retainReviewPct}% Keep
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       type="button"
-                      data-testid="over-bowler-umpire-stumping-btn"
-                      onClick={() => onRequestPostBallDrs('Stumped')}
-                      className="px-2.5 py-1 rounded bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-mono-num text-[11px] font-bold uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                      data-testid="over-bowler-drs-lbw-btn"
+                      disabled={bowlReviewsLeft <= 0}
+                      onClick={() => onRequestPostBallDrs('LBW')}
+                      className="px-2.5 py-1 rounded bg-amber-400 hover:bg-amber-300 disabled:bg-slate-700 disabled:text-slate-400 text-slate-950 font-mono-num text-[11px] font-bold uppercase tracking-wider cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
                     >
-                      3RD UMP STUMPING
+                      TAKE DRS (LBW) · {bowlReviewsLeft}/{drsMaxReviews}
                     </button>
-                  )}
+                    {challenge.isSpin && (
+                      <button
+                        type="button"
+                        data-testid="over-bowler-umpire-stumping-btn"
+                        onClick={() => onRequestPostBallDrs('Stumped')}
+                        className="px-2.5 py-1 rounded bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-mono-num text-[11px] font-bold uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                      >
+                        3RD UMP STUMPING{typeof stumpPct === 'number' ? ` (${stumpPct}%)` : ''}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             <button
               type="button"

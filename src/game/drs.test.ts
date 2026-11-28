@@ -14,6 +14,8 @@ import {
   startNextInnings,
 } from './cricketEngine';
 import {
+  computeDrsProbabilityEstimate,
+  computeStumpingOutProbability,
   deriveLbwThirdUmpireOutcome,
   deriveStumpingThirdUmpireOutcome,
   DRS_FORMAT_RULES,
@@ -467,5 +469,151 @@ test('AI Opponent takes DRS when batting (challenging OUT) and when bowling (cha
   assert.equal(matchAiBowling.innings1.wickets, 1);
   assert.equal(matchAiBowling.innings1.bowlingReviewsRemaining, 1);
 });
+
+test('DRS probability estimates reflect delivery context, honor verdict cutoffs, and populate UI state before review', () => {
+  // 1) Batter OUT: bouncer/short ball gives higher overturn chance than full straight yorker
+  const bouncerOutProb = computeDrsProbabilityEstimate({
+    appealType: 'LBW',
+    onFieldDecision: 'OUT',
+    deliveryUsed: 'bouncer',
+    lengthUsed: 'short',
+    shotUsed: 'defend',
+    bowlingSide: 'round',
+    pitchCondition: 'hard',
+    paceSpeedKph: 150,
+    variationUnit: 0.5,
+  });
+  const yorkerOutProb = computeDrsProbabilityEstimate({
+    appealType: 'LBW',
+    onFieldDecision: 'OUT',
+    deliveryUsed: 'yorker',
+    lengthUsed: 'full',
+    shotUsed: 'drive',
+    bowlingSide: 'over',
+    pitchCondition: 'green',
+    lineOffsetCm: 2,
+    variationUnit: 0.5,
+  });
+  assert.ok(bouncerOutProb.overturnPct > yorkerOutProb.overturnPct);
+  assert.equal(bouncerOutProb.retainReviewPct + bouncerOutProb.loseReviewPct, 100);
+  assert.equal(yorkerOutProb.retainReviewPct + yorkerOutProb.loseReviewPct, 100);
+  assert.ok(bouncerOutProb.overturnPct >= 6 && bouncerOutProb.overturnPct <= 78);
+  assert.ok(yorkerOutProb.overturnPct >= 6 && yorkerOutProb.overturnPct <= 78);
+
+  // 2) Bowler post-ball NOT OUT: bouncer warns low probability vs full straight yorker high shout
+  const speculativeBouncer = computeDrsProbabilityEstimate({
+    appealType: 'LBW',
+    onFieldDecision: 'NOT_OUT',
+    deliveryUsed: 'bouncer',
+    lengthUsed: 'short',
+    isSpeculativePostBall: true,
+    variationUnit: 0.5,
+  });
+  const speculativeYorker = computeDrsProbabilityEstimate({
+    appealType: 'LBW',
+    onFieldDecision: 'NOT_OUT',
+    deliveryUsed: 'yorker',
+    lengthUsed: 'full',
+    lineOffsetCm: 4,
+    isSpeculativePostBall: true,
+    variationUnit: 0.5,
+  });
+  assert.equal(speculativeBouncer.confidenceTier, 'low');
+  assert.equal(speculativeBouncer.confidenceLabel, 'RISKY — LIKELY WASTED');
+  assert.ok(speculativeYorker.overturnPct > speculativeBouncer.overturnPct);
+
+  // 3) Verdict honors probabilityEstimate cutoffs (overturn, Umpire's Call, and uphold/lose)
+  const customEst = {
+    overturnPct: 60,
+    umpiresCallPct: 20,
+    retainReviewPct: 80,
+    loseReviewPct: 20,
+    confidenceTier: 'high' as const,
+    confidenceLabel: 'STRONG REVIEW' as const,
+    hint: 'Strong chance',
+  };
+  const vOverturn = evaluateDrsVerdict({
+    appealType: 'LBW',
+    onFieldDecision: 'OUT',
+    reviewsRemaining: 2,
+    probabilityEstimate: customEst,
+    rng: () => 0.5, // < 0.60 -> overturned NOT OUT
+  });
+  assert.equal(vOverturn.finalDecisionIsOut, false);
+  assert.equal(vOverturn.overturned, true);
+  assert.equal(vOverturn.reviewRetained, true);
+
+  const vUmpCall = evaluateDrsVerdict({
+    appealType: 'LBW',
+    onFieldDecision: 'OUT',
+    reviewsRemaining: 2,
+    probabilityEstimate: customEst,
+    rng: () => 0.7, // between 0.60 and 0.80 -> UMPIRE'S CALL, review retained
+  });
+  assert.equal(vUmpCall.thirdUmpireOutcome, 'UMPIRES_CALL');
+  assert.equal(vUmpCall.finalDecisionIsOut, true);
+  assert.equal(vUmpCall.reviewRetained, true);
+
+  const vUpheld = evaluateDrsVerdict({
+    appealType: 'LBW',
+    onFieldDecision: 'OUT',
+    reviewsRemaining: 2,
+    probabilityEstimate: customEst,
+    rng: () => 0.9, // >= 0.80 -> upheld OUT, review lost
+  });
+  assert.equal(vUpheld.finalDecisionIsOut, true);
+  assert.equal(vUpheld.reviewRetained, false);
+  assert.equal(vUpheld.nextReviewsRemaining, 1);
+
+  // 4) Engine attaches probabilityEstimate to pendingDrsPopup and lbwProbability + stumpingOutPct to pendingBowlerChallenge
+  const match = createInitialMatchState({
+    mode: 'ai',
+    format: 'limited',
+    difficulty: 'medium',
+    homeTeamId: 'ind',
+    awayTeamId: 'aus',
+    totalOvers: 20,
+    homeBatsFirst: true,
+  });
+  const openedSignal = beginDrsOrApplyDelivery(match, makeSampleResolution());
+  assert.ok(openedSignal.nextState.pendingDrsPopup?.probabilityEstimate);
+  assert.equal(
+    openedSignal.nextState.pendingDrsPopup!.probabilityEstimate!.retainReviewPct +
+      openedSignal.nextState.pendingDrsPopup!.probabilityEstimate!.loseReviewPct,
+    100
+  );
+
+  const bowlMatch = createInitialMatchState({
+    mode: 'ai',
+    format: 'limited',
+    difficulty: 'medium',
+    homeTeamId: 'ind',
+    awayTeamId: 'aus',
+    totalOvers: 20,
+    homeBatsFirst: false,
+  });
+  const spinDot = makeSampleResolution({
+    isWicket: false,
+    wicketKind: undefined,
+    outcomeLabel: 'DOT BALL',
+    ballSymbol: '0',
+    deliveryUsed: 'off_spin',
+    lengthUsed: 'full',
+    spinDegree: 8,
+    drsAppeal: undefined,
+  });
+  const afterDot = applyDeliveryToMatch(bowlMatch, spinDot).nextState;
+  assert.ok(afterDot.pendingBowlerChallenge?.lbwProbability);
+  assert.equal(typeof afterDot.pendingBowlerChallenge?.stumpingOutPct, 'number');
+
+  const stumpPct = computeStumpingOutProbability({
+    lengthUsed: 'full',
+    deliveryUsed: 'googly',
+    spinDegree: 9,
+    rng: () => 0.5,
+  });
+  assert.ok(stumpPct >= 8 && stumpPct <= 62);
+});
+
 
 

@@ -13,6 +13,8 @@ import {
 } from './dls';
 import {
   applyDrsVerdictToResolution,
+  computeDrsProbabilityEstimate,
+  computeStumpingOutProbability,
   DRS_TIME_LIMIT_SEC,
   evaluateDrsVerdict,
   getDrsAllowance,
@@ -1162,6 +1164,22 @@ function evaluateTestAfterInningsEnds(state: MatchState): {
   };
 }
 
+function computeDeliveryVariationUnit(
+  resolution: DeliveryResolution,
+  ballsBowled: number
+): number {
+  const seed =
+    Math.abs(
+      Math.sin(
+        (resolution.hitAngleRad ?? 0.23) * 17.3 +
+          (resolution.pitchDistanceM ?? 5.5) * 3.7 +
+          (resolution.lineOffsetCm ?? 1.1) * 0.9 +
+          ballsBowled * 1.3
+      )
+    ) * 1000;
+  return seed - Math.floor(seed);
+}
+
 export function applyDeliveryToMatch(
   state: MatchState,
   resolution: DeliveryResolution,
@@ -1191,6 +1209,38 @@ export function applyDeliveryToMatch(
     resolution.runs === 0 &&
     userControlsBowling
   ) {
+    const isSpin = isSpinDelivery(resolution.deliveryUsed);
+    const variationUnit = computeDeliveryVariationUnit(
+      resolution,
+      postActive.ballsBowled
+    );
+    const lbwProbability = computeDrsProbabilityEstimate({
+      appealType: 'LBW',
+      onFieldDecision: 'NOT_OUT',
+      deliveryUsed: resolution.deliveryUsed,
+      lengthUsed: resolution.lengthUsed,
+      shotUsed: resolution.shotUsed,
+      pitchCondition: result.nextState.pitchCondition,
+      weatherCondition: result.nextState.weatherCondition,
+      bowlingSide: result.nextState.bowlingSide,
+      paceSpeedKph: resolution.paceSpeedKph,
+      spinDegree: resolution.spinDegree,
+      lineOffsetCm: resolution.lineOffsetCm,
+      pitchDistanceM: resolution.pitchDistanceM,
+      isSpeculativePostBall: true,
+      variationUnit,
+    });
+    const stumpingOutPct = isSpin
+      ? computeStumpingOutProbability({
+          lengthUsed: resolution.lengthUsed,
+          deliveryUsed: resolution.deliveryUsed,
+          shotUsed: resolution.shotUsed,
+          spinDegree: resolution.spinDegree,
+          isSpeculativePostBall: true,
+          rng: () => variationUnit,
+        })
+      : undefined;
+
     pendingBowlerChallenge = {
       id: result.nextState.commentaryLog[0]?.id ?? postActive.ballsBowled,
       resolution,
@@ -1198,8 +1248,10 @@ export function applyDeliveryToMatch(
       strikerName: preStrikerName,
       bowlerName: preBowlerName,
       overCompleted,
-      isSpin: isSpinDelivery(resolution.deliveryUsed),
+      isSpin,
       timeLimitSec: DRS_TIME_LIMIT_SEC,
+      lbwProbability,
+      stumpingOutPct,
     };
   }
 
@@ -2530,12 +2582,30 @@ export function beginDrsOrApplyDelivery(
 
   const triggeredByUser =
     state.mode === 'pvp' || requestingTeamId === state.homeTeamId;
+  const variationUnit = computeDeliveryVariationUnit(resolution, active.ballsBowled);
+  const probabilityEstimate = computeDrsProbabilityEstimate({
+    appealType,
+    onFieldDecision,
+    deliveryUsed: resolution.deliveryUsed,
+    lengthUsed: resolution.lengthUsed,
+    shotUsed: resolution.shotUsed,
+    pitchCondition: state.pitchCondition,
+    weatherCondition: state.weatherCondition,
+    bowlingSide: state.bowlingSide,
+    paceSpeedKph: resolution.paceSpeedKph,
+    spinDegree: resolution.spinDegree,
+    lineOffsetCm: resolution.lineOffsetCm,
+    pitchDistanceM: resolution.pitchDistanceM,
+    isSpeculativePostBall: false,
+    variationUnit,
+  });
 
   if (!triggeredByUser) {
     const aiRequests = shouldAiRequestDrs({
       appealType,
       onFieldDecision,
       reviewsRemaining,
+      probabilityEstimate,
       rng,
     });
     if (!aiRequests) {
@@ -2548,6 +2618,7 @@ export function beginDrsOrApplyDelivery(
       appealType,
       onFieldDecision,
       reviewsRemaining,
+      probabilityEstimate,
       rng,
     });
     const referralMsg =
@@ -2567,6 +2638,7 @@ export function beginDrsOrApplyDelivery(
       timeLimitSec: DRS_TIME_LIMIT_SEC,
       triggeredByUser: false,
       referralKind: 'drs',
+      probabilityEstimate,
       phase: 'third_umpire',
       tracking: evaluated.tracking,
       stumpingCheck: evaluated.stumpingCheck,
@@ -2602,6 +2674,7 @@ export function beginDrsOrApplyDelivery(
     timeLimitSec: DRS_TIME_LIMIT_SEC,
     triggeredByUser: true,
     referralKind: 'drs',
+    probabilityEstimate,
     phase: 'signal',
   };
 
@@ -2659,6 +2732,7 @@ export function requestPostBallBowlerChallenge(
     reviewsRemaining,
     isUmpireReferral: isStumping,
     isSpeculativePostBall: true,
+    probabilityEstimate: isStumping ? undefined : challenge.lbwProbability,
     rng,
   });
 
@@ -2681,6 +2755,7 @@ export function requestPostBallBowlerChallenge(
     challengeTargetBatterIndex: challenge.strikerIndex,
     challengeBowlerName: challenge.bowlerName,
     challengeOverCompleted: challenge.overCompleted,
+    probabilityEstimate: isStumping ? undefined : challenge.lbwProbability,
     phase: 'third_umpire',
     tracking: evaluated.tracking,
     stumpingCheck: evaluated.stumpingCheck,
@@ -2713,6 +2788,7 @@ export function requestDrsReview(
     onFieldDecision: prompt.onFieldDecision,
     reviewsRemaining: prompt.reviewsRemaining,
     isUmpireReferral: prompt.referralKind === 'umpire_stumping',
+    probabilityEstimate: prompt.probabilityEstimate,
     rng,
   });
 
